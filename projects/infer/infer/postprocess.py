@@ -64,6 +64,8 @@ class Postprocessor:
         integrated with 0s, so will have a lower magnitude
         than they technically should.
         """
+        if self.integration_window_size == 0:
+            return y
         window_size = self.integration_window_size
         window = np.ones((window_size,)) / window_size
         integrated = np.convolve(y, window, mode="full")
