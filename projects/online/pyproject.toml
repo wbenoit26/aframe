@@ -23,6 +23,7 @@ numpy = "<2.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.1"
+jupyter = "^1.0.0"
 
 [[tool.poetry.source]]
 name = "torch"
