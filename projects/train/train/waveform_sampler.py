@@ -203,7 +203,6 @@ class ChunkedWaveformDataset(torch.utils.data.IterableDataset):
     def __iter__(self):
         it = iter(self.chunk_it)
         [chunk] = next(it)
-
         num_waveforms, _, _ = chunk.shape
         while True:
             # generate batches from the current chunk

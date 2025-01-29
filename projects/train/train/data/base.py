@@ -279,9 +279,10 @@ class BaseAframeDataset(pl.LightningDataModule):
 
         # If signal_start is less than 0, add padding on the left
         left_pad = -1 * min(signal_start, 0)
+        signal_start += left_pad
         # If signal_stop is larger than the dataset, add padding on the right
         right_pad = max(signal_stop - waveforms.shape[-1], 0)
-
+        signal_stop += right_pad
         waveforms = torch.nn.functional.pad(waveforms, [left_pad, right_pad])
         waveforms = waveforms[..., signal_start:signal_stop]
 
@@ -514,32 +515,35 @@ class BaseAframeDataset(pl.LightningDataModule):
         # create `num_view` instances of the injection on top of
         # the background, each showing a different, overlapping
         # portion of the signal
-        kernel_size = X.size(-1)
-        signal_idx = int(self.signal_time * self.hparams.sample_rate)
-        max_start = int(
-            signal_idx - self.left_pad_size - self.filter_size // 2
-        )
-        max_stop = max_start + kernel_size
-        pad = max_stop - signals.size(-1)
-        if pad > 0:
-            signals = torch.nn.functional.pad(signals, [0, pad])
+        # kernel_size = X.size(-1)
+        # signal_idx = int(self.signal_time * self.hparams.sample_rate)
+        # max_start = int(
+        #     signal_idx - self.left_pad_size - self.filter_size // 2
+        # )
+        # max_stop = max_start + kernel_size
+        # pad = max_stop - signals.size(-1)
+        # if pad > 0:
+        #     signals = torch.nn.functional.pad(signals, [0, pad])
 
-        step = (
-            kernel_size
-            - self.left_pad_size
-            - self.right_pad_size
-            - self.filter_size
-        )
-        step /= self.hparams.num_valid_views - 1
-        X_inj = []
-        for i in range(self.hparams.num_valid_views):
-            start = max_start - int(i * step)
-            stop = start + kernel_size
-            injected = X + signals[:, :, int(start) : int(stop)]
-            X_inj.append(injected)
-        X_inj = torch.stack(X_inj)
+        # step = (
+        #     kernel_size
+        #     - self.left_pad_size
+        #     - self.right_pad_size
+        #     - self.filter_size
+        # )
+        # step /= self.hparams.num_valid_views - 1
+        # X_inj = []
+        # for i in range(self.hparams.num_valid_views):
+        #     start = max_start - int(i * step)
+        #     stop = start + kernel_size
+        #     injected = X + signals[:, :, int(start) : int(stop)]
+        #     X_inj.append(injected)
+        # X_inj = torch.stack(X_inj)
+        pad = self.filter_size // 2
+        signals = torch.nn.functional.pad(signals, [pad, pad])
+        X_inj = X + signals
 
-        return X, X_inj, psd
+        return X, X_inj[None], psd
 
     def val_dataloader(self) -> ZippedDataset:
         """
@@ -606,6 +610,7 @@ class BaseAframeDataset(pl.LightningDataModule):
             channels=["cross", "plus"],
             path="waveforms",
         )
+        logging.info(f"Waveform size: {waveform_loader.waveform_size}")
         # calculate how many batches we'll sample from each chunk
         # based on requested chunks per epoch and batches per epoch
         batches_per_chunk = (
