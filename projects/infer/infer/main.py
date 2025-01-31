@@ -81,6 +81,12 @@ def infer(
     logging.info("Inference complete, postprocessing output timeseries")
 
     background, foreground = result
+    t0 = postprocessor.t0
+    shift = postprocessor.shifts[-1]
+    save_file = f"/home/william.benoit/aframe/runs/early_warning/results/background_{t0}_{shift}.npy"  # noqa
+    np.save(save_file, background)
+    save_file = f"/home/william.benoit/aframe/runs/early_warning/results/foreground_{t0}_{shift}.npy"  # noqa
+    np.save(save_file, foreground)
     background = postprocessor(background)
     foreground = postprocessor(foreground)
 

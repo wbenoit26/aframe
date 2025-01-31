@@ -202,7 +202,7 @@ def end_o3_ratesandpops_bns(
         unit=msun,
     )
     prior["redshift"] = UniformSourceFrame(
-        0, 0.01, name="redshift", cosmology=cosmology
+        0, 0.005, name="redshift", cosmology=cosmology
     )
     spin_prior = uniform_spin()
     for key, value in spin_prior.items():

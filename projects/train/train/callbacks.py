@@ -44,6 +44,7 @@ class ModelCheckpoint(pl.callbacks.ModelCheckpoint):
 
         device = pl_module.device
         [X], waveforms = next(iter(trainer.train_dataloader))
+        waveforms = trainer.datamodule.slice_waveforms(waveforms)
         X = X.to(device)
         X, y = trainer.datamodule.augment(X, waveforms)
 

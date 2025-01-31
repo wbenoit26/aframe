@@ -95,6 +95,7 @@ def rejection_sample(
         # compute both individual ifo snrs and network snr
         ifo_snrs = compute_ifo_snr(
             projected, psd, sample_rate, highpass, lowpass
+            projected[..., :8192], psd, sample_rate, highpass
         )
         snrs = ifo_snrs**2
         snrs = snrs.sum(axis=-1) ** 0.5

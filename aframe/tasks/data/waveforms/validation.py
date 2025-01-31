@@ -107,7 +107,7 @@ class DeployValidationWaveforms(
         with psd_segment.open("r") as psd_file:
             psd_file = h5py.File(io.BytesIO(psd_file.read()))
             psds = load_psds(
-                psd_file, self.ifos, df=1 / self.waveform_duration
+                psd_file, self.ifos, df=2 / self.waveform_duration
             )
 
         # load in prior
