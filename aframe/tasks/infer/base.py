@@ -4,6 +4,7 @@ from pathlib import Path
 import h5py
 import law
 import luigi
+import numpy as np
 from luigi.util import inherits
 
 import utils.data as data_utils
@@ -229,6 +230,8 @@ class InferBase(
                 f.attrs["duration"] = sequence.duration
                 f.attrs["shift"] = shifts
                 f.create_dataset("background", data=raw_background)
+                if raw_foreground is None:
+                    raw_foreground = np.array([])
                 f.create_dataset("foreground", data=raw_foreground)
         background.write(self.background_output)
         foreground.write(self.foreground_output)
