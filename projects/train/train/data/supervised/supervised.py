@@ -1,6 +1,7 @@
 from typing import Optional
 
 import torch
+from ml4gw.utils.slicing import sample_kernels
 
 from train import augmentations as aug
 from train.data.base import BaseAframeDataset
@@ -55,10 +56,13 @@ class SupervisedAframeDataset(BaseAframeDataset):
         N = len(params[0])
         snrs = self.snr_sampler.sample((N,)).to(X.device)
         responses = self.projector(*params, snrs, psds[mask], **polarizations)
-        # kernels = sample_kernels(
-        #     responses, kernel_size=X.size(-1), coincident=True
-        # )
-        kernels = responses
+        # TODO: Where should waveform_duration < kernel_length be checked?
+        if responses.size(-1) == X.size(-1):
+            kernels = responses
+        else:
+            kernels = sample_kernels(
+                responses, kernel_size=X.size(-1), coincident=True
+            )
 
         # perform augmentations on the responses themselves,
         # keep track of which indices have been augmented

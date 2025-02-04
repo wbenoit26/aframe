@@ -10,7 +10,10 @@ from infer.postprocess import Postprocessor
 
 
 def infer(
-    client: InferenceClient, sequence: Sequence, postprocessor: Postprocessor
+    client: InferenceClient,
+    sequence: Sequence,
+    postprocessor: Postprocessor,
+    return_raw_output: bool = False,
 ):
     """
     Perform inference on a sequence of data.
@@ -22,10 +25,15 @@ def infer(
             Sequence object
         postprocessor:
             Postprocessor object
+        return_raw_output:
+            Whether to return the raw (unclustered) inference outputs.
+            Defaults to False.
 
     Returns:
         background: Background events
         foreground: Foreground events
+        raw_background: Raw background outputs (if return_raw_output is True)
+        raw_foreground: Raw foreground outputs (if return_raw_output is True)
     """
     logging.info(
         "Beginning inference on sequence {} corresponding "
@@ -80,18 +88,14 @@ def infer(
         time.sleep(1e-1)
     logging.info("Inference complete, postprocessing output timeseries")
 
-    background, foreground = result
-    t0 = postprocessor.t0
-    shift = postprocessor.shifts[-1]
-    save_file = f"/home/william.benoit/aframe/runs/early_warning/results/background_{t0}_{shift}.npy"  # noqa
-    np.save(save_file, background)
-    save_file = f"/home/william.benoit/aframe/runs/early_warning/results/foreground_{t0}_{shift}.npy"  # noqa
-    np.save(save_file, foreground)
-    background = postprocessor(background)
-    foreground = postprocessor(foreground)
+    raw_background, raw_foreground = result
+    background = postprocessor(raw_background)
+    foreground = postprocessor(raw_foreground)
 
     logging.info("Recovering injections from foreground events")
     foreground = sequence.recover(foreground)
 
     logging.info(f"Finished processing sequence {sequence.id}")
+    if return_raw_output:
+        return background, foreground, raw_background, raw_foreground
     return background, foreground

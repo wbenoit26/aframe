@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+import h5py
 import law
 import luigi
 from luigi.util import inherits
@@ -30,7 +31,8 @@ class InferParameters(law.Task):
     rate_per_gpu = luigi.FloatParameter(
         default=100.0, description="Inferences per second per gpu"
     )
-    zero_lag = luigi.BoolParameter(default="true")
+    zero_lag = luigi.BoolParameter(default="false")
+    save_raw_output = luigi.BoolParameter(default="false")
     output_dir = PathParameter(default=paths().results_dir)
     train_task = luigi.TaskParameter()
 
@@ -89,6 +91,10 @@ class InferBase(
     @property
     def zero_lag_output(self):
         return self.tmp_dir / "0lag.hdf5"
+
+    @property
+    def raw_output(self):
+        return self.tmp_dir / "raw_output.hdf5"
 
     @property
     def background_fnames(self):
@@ -207,7 +213,22 @@ class InferBase(
         )
 
         with client:
-            background, foreground = infer(client, sequence, postprocessor)
+            if self.save_raw_output:
+                background, foreground, raw_background, raw_foreground = infer(
+                    client,
+                    sequence,
+                    postprocessor,
+                    return_raw_output=True,
+                )
+            else:
+                background, foreground = infer(client, sequence, postprocessor)
 
+        if self.save_raw_output:
+            with h5py.File(self.raw_output, "w") as f:
+                f.attrs["t0"] = sequence.t0
+                f.attrs["duration"] = sequence.duration
+                f.attrs["shift"] = shifts
+                f.create_dataset("background", data=raw_background)
+                f.create_dataset("foreground", data=raw_foreground)
         background.write(self.background_output)
         foreground.write(self.foreground_output)

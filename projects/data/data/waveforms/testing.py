@@ -126,7 +126,7 @@ def testing_waveforms(
     injection_times += jitter
 
     # calculate psd that will be used for snr calculation
-    df = 2 / waveform_duration
+    df = 1 / waveform_duration
     logging.info(f"Using background file {psd_file} for psd calculation")
     psds = utils.load_psds(psd_file, ifos, df=df)
 

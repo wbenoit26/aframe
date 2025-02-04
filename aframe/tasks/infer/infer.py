@@ -70,7 +70,6 @@ class DeployInferLocal(InferBase):
             log_file=server_log,
             wait=True,
         )
-
         current_gpus = os.getenv("CUDA_VISIBLE_DEVICES", "")
 
         # helper class to combine
@@ -124,6 +123,7 @@ class Infer(AframeSingularityTask):
         self.foreground_output = self.output_dir / "foreground.hdf5"
         self.background_output = self.output_dir / "background.hdf5"
         self.zero_lag_output = self.output_dir / "0lag.hdf5"
+        self.raw_output = self.output_dir / "raw_output.hdf5"
 
     def output(self):
         output = {}
@@ -131,6 +131,8 @@ class Infer(AframeSingularityTask):
         output["background"] = law.LocalFileTarget(self.background_output)
         if self.zero_lag:
             output["zero_lag"] = law.LocalFileTarget(self.zero_lag_output)
+        if self.save_raw_output:
+            output["raw_output"] = law.LocalFileTarget(self.raw_output)
         return output
 
     def requires(self):
@@ -145,6 +147,26 @@ class Infer(AframeSingularityTask):
             workflow=self.workflow,
             poll_interval=0.2,
         )
+
+    def aggregate_raw_output(self):
+        raw_output_files = [
+            bg_file.parent / "raw_output.hdf5"
+            for bg_file in self.background_files
+        ]
+        with h5py.File(self.raw_output, "w") as f:
+            for fname in raw_output_files:
+                with h5py.File(fname, "r") as g:
+                    t0 = g.attrs["t0"]
+                    duration = g.attrs["duration"]
+                    shift = g.attrs["shift"]
+                    background = g["background"][:]
+                    foreground = g["foreground"][:]
+
+                shift = [str(s) for s in shift]
+                group_name = f"{t0}_{duration}_{''.join(shift)}"
+                g = f.create_group(group_name)
+                g.create_dataset("background", data=background)
+                g.create_dataset("foreground", data=foreground)
 
     @property
     def targets(self):
@@ -203,3 +225,6 @@ class Infer(AframeSingularityTask):
 
         if self.remove_tmpdir:
             shutil.rmtree(self.output_dir / "tmp")
+        if self.save_raw_output:
+            self.aggregate_raw_output()
+

@@ -515,35 +515,32 @@ class BaseAframeDataset(pl.LightningDataModule):
         # create `num_view` instances of the injection on top of
         # the background, each showing a different, overlapping
         # portion of the signal
-        # kernel_size = X.size(-1)
-        # signal_idx = int(self.signal_time * self.hparams.sample_rate)
-        # max_start = int(
-        #     signal_idx - self.left_pad_size - self.filter_size // 2
-        # )
-        # max_stop = max_start + kernel_size
-        # pad = max_stop - signals.size(-1)
-        # if pad > 0:
-        #     signals = torch.nn.functional.pad(signals, [0, pad])
+        kernel_size = X.size(-1)
+        signal_idx = int(self.signal_time * self.hparams.sample_rate)
+        max_start = int(
+            signal_idx - self.left_pad_size - self.filter_size // 2
+        )
+        max_stop = max_start + kernel_size
+        pad = max_stop - signals.size(-1)
+        if pad > 0:
+            signals = torch.nn.functional.pad(signals, [0, pad])
 
-        # step = (
-        #     kernel_size
-        #     - self.left_pad_size
-        #     - self.right_pad_size
-        #     - self.filter_size
-        # )
-        # step /= self.hparams.num_valid_views - 1
-        # X_inj = []
-        # for i in range(self.hparams.num_valid_views):
-        #     start = max_start - int(i * step)
-        #     stop = start + kernel_size
-        #     injected = X + signals[:, :, int(start) : int(stop)]
-        #     X_inj.append(injected)
-        # X_inj = torch.stack(X_inj)
-        pad = self.filter_size // 2
-        signals = torch.nn.functional.pad(signals, [pad, pad])
-        X_inj = X + signals
+        step = (
+            kernel_size
+            - self.left_pad_size
+            - self.right_pad_size
+            - self.filter_size
+        )
+        step /= self.hparams.num_valid_views - 1
+        X_inj = []
+        for i in range(self.hparams.num_valid_views):
+            start = max_start - int(i * step)
+            stop = start + kernel_size
+            injected = X + signals[:, :, int(start) : int(stop)]
+            X_inj.append(injected)
+        X_inj = torch.stack(X_inj)
 
-        return X, X_inj[None], psd
+        return X, X_inj, psd
 
     def val_dataloader(self) -> ZippedDataset:
         """
