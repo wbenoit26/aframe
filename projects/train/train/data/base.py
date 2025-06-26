@@ -57,6 +57,7 @@ class ZippedDataset(torch.utils.data.IterableDataset):
 
 class BaseAframeDataset(pl.LightningDataModule):
     def __init__(
+        # Waveform update
         self,
         # data loading args
         data_dir: str,
@@ -105,6 +106,7 @@ class BaseAframeDataset(pl.LightningDataModule):
         # downloaded first, either for loading signals
         # or to infer sample rate, so wait to construct
         # them until self.setup
+        # Waveform update
         self.waveform_sampler = None
         self.whitener = None
         self.projector = None
@@ -198,12 +200,14 @@ class BaseAframeDataset(pl.LightningDataModule):
         """
         return int(self.hparams.right_pad * self.hparams.sample_rate)
 
+    # Waveform update
     @property
     def train_waveform_fnames(self) -> Sequence[str]:
         data_dir = os.path.join(self.data_dir, "training_waveforms")
         fnames = glob.glob(f"{data_dir}/waveforms*.hdf5")
         return list(fnames)
 
+    # Waveform update
     @property
     def signal_time(self):
         with h5py.File(self.train_waveform_fnames[0], "r") as f:
@@ -232,6 +236,7 @@ class BaseAframeDataset(pl.LightningDataModule):
     # Utilities for initial data loading and preparation
     # ================================================ #
 
+    # Waveform update
     @property
     def waveform_set_cls(self):
         cls = waveform_class_factory(
@@ -256,6 +261,7 @@ class BaseAframeDataset(pl.LightningDataModule):
         )
         fs_utils.download_training_data(bucket, self.data_dir)
 
+    # Waveform update
     def slice_waveforms(self, waveforms: torch.Tensor) -> torch.Tensor:
         """
         Slice waveforms to the correct length depending on
@@ -298,6 +304,7 @@ class BaseAframeDataset(pl.LightningDataModule):
         stop = (rank + 1) * per_dev
         return start, stop
 
+    # Waveform update
     def load_val_waveforms(self, f, world_size, rank):
         waveform_set = self.waveform_set_cls.read(f)
 
@@ -338,6 +345,7 @@ class BaseAframeDataset(pl.LightningDataModule):
             if isinstance(item, torch.nn.Module):
                 item.to(self.device)
 
+    # Waveform update
     def build_transforms(self):
         """
         Helper utility in case we ever want to construct
@@ -569,6 +577,7 @@ class BaseAframeDataset(pl.LightningDataModule):
             background_dataset, signal_loader, minimum=self.valid_loader_length
         )
 
+    # Waveform update
     def train_dataloader(self) -> torch.utils.data.DataLoader:
         # divide batches per epoch up among all devices
         world_size, _ = self.get_world_size_and_rank()
