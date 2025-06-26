@@ -56,6 +56,81 @@ class ZippedDataset(torch.utils.data.IterableDataset):
 
 
 class BaseAframeDataset(pl.LightningDataModule):
+    """
+    Base LightningDataModule for loading data to train AMPLFI models.
+
+    Subclasses must define the `inject` method
+    which encodes how background strain,
+    cross/plus polarizations and parameters
+    are processed before being passed to a model
+
+    Args:
+        data_dir:
+            Path to the directory containing the training data.
+            If this is a s3 bucket, it will be downloaded
+            to a local directory.
+        ifos:
+            List of interferometers to use for training.
+        sample_rate:
+            Sample rate in Hz of the training data.
+        batches_per_epoch:
+            Number of batches per epoch.
+        num_files_per_batch:
+            Number of background files to sample from each batch.
+        batch_size:
+            Batch size for training.
+        kernel_length:
+            Length in seconds of the time-domain kernel
+            passed to the model after whitening.
+        fduration:
+            The length of the whitening filter's impulse
+            response, in seconds. `fduration / 2` seconds
+            worth of data will be cropped from the edges
+            of the whitened timeseries.
+        psd_length:
+            Length in seconds of the PSD used for whitening.
+        waveform_prob:
+            Probability that a batch element will contain a waveform.
+        left_pad:
+            Length in seconds of the minimum gap between the left
+            edge of whitened kernel and coalescence point of the signal.
+        right_pad:
+            Length in seconds of the minimum gap between the right
+            edge of whitened kernel and coalescence point of the signal.
+        fftlength:
+            Length in seconds of the FFT used for PSD estimation.
+            If `None`, will use the length of the kernel + fduration.
+        highpass:
+            Highpass filter frequency in Hz.
+        lowpass:
+            Lowpass filter frequency in Hz.
+        snr_sampler:
+            A callable that samples SNRs for the injected signals.
+            If `None`, SNRs will be left unchanged.
+        valid_stride:
+            Stride in seconds for the validation timeslides.
+            If `None`, will use `kernel_length + fduration`.
+        num_valid_views:
+            Number of views to inject into the validation data.
+            Each view will contain the same signal at a different
+            position in the background.
+        min_valid_duration:
+            Minimum duration in seconds of the validation data.
+        valid_livetime:
+            Total livetime in seconds of the validation data
+            to be generated via timeslides.
+        verbose:
+            Whether to log debug information during training.
+        chunks_per_epoch:
+            Number of waveform chunks to load per epoch.
+            Each chunk will be sampled from the waveform file
+            and used to generate waveforms for training.
+        chunk_size:
+            Size in number of waveforms of each chunk
+            loaded from the waveform file.
+            This is used to sample waveforms for training.
+    """
+
     def __init__(
         # Waveform update
         self,
@@ -63,7 +138,6 @@ class BaseAframeDataset(pl.LightningDataModule):
         data_dir: str,
         ifos: Sequence[str],
         sample_rate: float,
-        valid_frac: float,
         batches_per_epoch: int,
         num_files_per_batch: int,
         # preprocessing args
@@ -73,8 +147,6 @@ class BaseAframeDataset(pl.LightningDataModule):
         psd_length: float,
         # augmentation args
         waveform_prob: float = 1,
-        max_snr: float = 100,
-        snr_alpha: float = 3,
         left_pad: float = 0,
         right_pad: float = 0,
         fftlength: Optional[float] = None,
