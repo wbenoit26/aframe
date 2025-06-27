@@ -1,8 +1,9 @@
-from typing import TYPE_CHECKING
+from typing import Callable, TYPE_CHECKING
 
-
-from ....prior import AmplfiPrior
 from ..sampler import WaveformSampler
+import torch
+
+from ledger.injections import BilbyParameterSet
 
 if TYPE_CHECKING:
     pass
@@ -13,8 +14,7 @@ class WaveformGenerator(WaveformSampler):
         self,
         *args,
         num_val_waveforms: int,
-        training_prior: AmplfiPrior,
-        num_fit_params: int,
+        training_prior: Callable,
         **kwargs,
     ):
         """
@@ -25,26 +25,40 @@ class WaveformGenerator(WaveformSampler):
                 Total number of validation waveforms to use.
                 This total will be split up among all devices
             training_prior:
-                A callable that takes an integer N and
-                returns a dictionary of parameter Tensors, each of length `N`
+                A callable that returns a prior distribution
+                for the parameters of the waveform generator.
+                It should take no arguments and return an object
+                with a `sample` method that takes an integer N.
 
         """
         super().__init__(*args, **kwargs)
-        self.training_prior = training_prior
+        self.training_prior, _ = training_prior()
         self.num_val_waveforms = num_val_waveforms
-        self.num_fit_params = num_fit_params
 
     def get_val_waveforms(self, _, world_size):
         num_waveforms = self.num_val_waveforms // world_size
-        parameters = self.training_prior(num_waveforms, device="cpu")
-        hc, hp = self(**parameters)
-        return hc, hp, parameters
+        parameters = self.training_prior.sample(num_waveforms)
+        parameter_set = BilbyParameterSet(**parameters)
+        generation_params = parameter_set.generation_params(
+            reference_frequency=40
+        )
+        generation_params = {
+            k: torch.Tensor(v) for k, v in generation_params.items()
+        }
+        hc, hp = self(**generation_params)
+        return hc, hp, generation_params
 
-    def sample(self, X):
-        N = len(X)
-        parameters = self.training_prior(N, device=X.device)
-        hc, hp = self(**parameters)
-        return hc, hp, parameters
+    def sample(self, num_waveforms, device="cpu"):
+        parameters = self.training_prior.sample(num_waveforms)
+        parameter_set = BilbyParameterSet(**parameters)
+        generation_params = parameter_set.generation_params(
+            reference_frequency=40
+        )
+        generation_params = {
+            k: torch.Tensor(v).to(device) for k, v in generation_params.items()
+        }
+        hc, hp = self(**generation_params)
+        return hc, hp, generation_params
 
     def forward(self):
         raise NotImplementedError

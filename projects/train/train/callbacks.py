@@ -43,9 +43,9 @@ class ModelCheckpoint(pl.callbacks.ModelCheckpoint):
         )
 
         device = pl_module.device
-        [X], waveforms = next(iter(trainer.train_dataloader))
+        [X] = next(iter(trainer.train_dataloader))
         X = X.to(device)
-        X, y = trainer.datamodule.augment(X, waveforms)
+        X, y = trainer.datamodule.inject(X)
         trace = torch.jit.trace(module.model.to("cpu"), X.to("cpu"))
 
         save_dir = trainer.logger.save_dir
@@ -71,20 +71,20 @@ class SaveAugmentedBatch(Callback):
             save_dir = trainer.logger.save_dir
 
             # build training batch by hand
-            [X], waveforms = next(iter(trainer.train_dataloader))
-            waveforms = trainer.datamodule.slice_waveforms(waveforms)
+            [X] = next(iter(trainer.train_dataloader))
             X = X.to(device)
 
-            X, y = trainer.datamodule.augment(X, waveforms)
+            X, y = trainer.datamodule.inject(X)
 
             # build val batch by hand
-            [background, _, _], [signals] = next(
+            [background, _, _], [cross, plus] = next(
                 iter(trainer.datamodule.val_dataloader())
             )
             background = background.to(device)
-            signals = signals.to(device)
+            cross = cross.to(device)
+            plus = plus.to(device)
             X_bg, X_inj = trainer.datamodule.build_val_batches(
-                background, signals
+                background, cross, plus
             )
 
             if save_dir.startswith("s3://"):

@@ -1,11 +1,12 @@
 from dataclasses import dataclass, make_dataclass
-from typing import Callable, Dict, List, Optional
+from typing import Dict, List, Optional
 
 import h5py
 import numpy as np
 import torch
 from ml4gw.waveforms.conversion import bilby_spins_to_lalsim
 from ml4gw.waveforms.generator import TimeDomainCBCWaveformGenerator
+from ml4gw.waveforms import IMRPhenomD, IMRPhenomPv2, TaylorF2
 
 from ledger.ledger import PATH, Ledger, metadata, parameter, waveform
 from utils.cosmology import DEFAULT_COSMOLOGY
@@ -181,13 +182,25 @@ class WaveformPolarizationSet(InjectionMetadata, BilbyParameterSet):
         reference_frequency: float,
         sample_rate: float,
         waveform_duration: float,
-        waveform_approximant: Callable,
+        waveform_approximant: str,
         coalescence_time: float,
     ):
         if waveform_duration < coalescence_time:
             raise ValueError(
                 "Coalescence time must be less than waveform duration; "
                 f"got values of {coalescence_time} and {waveform_duration}"
+            )
+
+        if waveform_approximant == "IMRPhenomD":
+            waveform_approximant = IMRPhenomD()
+        elif waveform_approximant == "IMRPhenomPv2":
+            waveform_approximant = IMRPhenomPv2()
+        elif waveform_approximant == "TaylorF2":
+            waveform_approximant = TaylorF2()
+        else:
+            raise ValueError(
+                f"Unknown waveform approximant: {waveform_approximant}. "
+                "Expected one of 'IMRPhenomD', 'IMRPhenomPv2', or 'TaylorF2'."
             )
 
         waveform_generator = TimeDomainCBCWaveformGenerator(

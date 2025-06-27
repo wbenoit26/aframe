@@ -38,6 +38,18 @@ class AframeCLI(LightningCLI):
             "model.init_args.metric.init_args.stride",
         )
 
+        parser.link_arguments(
+            "data.init_args.sample_rate",
+            "data.init_args.waveform_sampler.init_args.sample_rate",
+            apply_on="parse",
+        )
+
+        parser.link_arguments(
+            "data.init_args.fduration",
+            "data.init_args.waveform_sampler.init_args.fduration",
+            apply_on="parse",
+        )
+
 
 def main(args=None):
     cli = AframeCLI(
