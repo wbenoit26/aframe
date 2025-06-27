@@ -9,68 +9,38 @@ from .sampler import WaveformSampler
 
 class WaveformLoader(WaveformSampler):
     """
-    Torch module for loading waveforms from disk,
-    performing train/val/test split, and sampling
-    them during training.
+    Torch module for loading training and validation
+    waveforms from disk and sampling them during training.
 
     TODO: modify this to sample waveforms from disk, taking
     an index sampler object so that DDP training can sample
     different waveforms for each device.
 
     Args:
-        waveform_file:
-            Path to the HDF5 file containing the waveforms
-        val_frac:
-            Fraction of waveforms to use for validation
+        training_waveform_file:
+            Path to the training waveforms file
+        val_waveform_file:
+            Path to the validation waveforms file
     """
 
     def __init__(
         self,
         *args,
-        waveform_file: Path,
-        val_frac: float,
+        training_waveform_file: Path,
+        val_waveform_file: Path,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
-        self.val_frac = val_frac
-        self.waveform_file = waveform_file
+        self.training_waveform_file = training_waveform_file
+        self.val_waveform_file = val_waveform_file
 
-        with h5py.File(waveform_file) as f:
-            self.num_waveforms = len(f["signals"])
+        with h5py.File(training_waveform_file) as f:
+            self.num_train_waveforms = len(f["waveforms"]["cross"])
+            self.right_pad = f.attrs["duration"] - f.attrs["coalescence_time"]
 
-        self.waveform_file = waveform_file
-        (
-            self.train_waveforms,
-            self.train_parameters,
-        ) = self.get_train_waveforms()
-
-    @property
-    def num_val_waveforms(self):
-        """Total number of validation waveforms across all devices"""
-        return int(self.val_frac * self.num_waveforms)
-
-    @property
-    def val_waveforms_per_device(self):
-        """Number of validation waveforms per device"""
-        world_size, _ = self.get_world_size_and_rank()
-        return self.num_val_waveforms // world_size
-
-    @property
-    def num_train_waveforms(self):
-        """Total number of training waveforms"""
-        return self.num_waveforms - self.num_val_waveforms
-
-    def load_signals(self, start, stop):
-        """
-        Load signals and parameters of specified indices from the dataset
-        """
-        with h5py.File(self.waveform_file) as f:
-            signals = torch.Tensor(f["signals"][start:stop])
-            parameters = {}
-            for parameter in self.inference_params:
-                parameters[parameter] = torch.Tensor(f[parameter][start:stop])
-
-        return signals, parameters
+        with h5py.File(val_waveform_file) as f:
+            key = list(f["waveforms"].keys())[0]
+            self.num_val_waveforms = len(f["waveforms"][key])
 
     def get_slice_bounds(self, total, world_size, rank) -> tuple[int, int]:
         """
@@ -82,53 +52,41 @@ class WaveformLoader(WaveformSampler):
         stop = (rank + 1) * per_dev
         return start, stop
 
-    def get_train_waveforms(
-        self,
-    ):
+    def get_train_waveforms(self, world_size, rank, device):
         """
         Returns train waveforms for this device
         """
-        world_size, rank = self.get_world_size_and_rank()
         start, stop = self.get_slice_bounds(
             self.num_train_waveforms, world_size, rank
         )
-        return self.load_signals(start, stop)
+        with h5py.File(self.val_waveform_file) as f:
+            waveforms = []
+            for key in f["waveforms"].keys():
+                waveforms.append(torch.Tensor(f["waveforms"][key][start:stop]))
 
-    def get_val_waveforms(self):
+        self.train_waveforms = torch.stack(waveforms, dim=0).to(device)
+
+    def get_val_waveforms(self, world_size, rank):
         """
         Returns validation waveforms for this device
         """
-        world_size, rank = self.get_world_size_and_rank()
         start, stop = self.get_slice_bounds(
             self.num_val_waveforms, world_size, rank
         )
-        # start counting from the back for val waveforms
-        start, stop = -start, -stop or None
-        return self.load_signals(start, stop)
+        with h5py.File(self.val_waveform_file) as f:
+            waveforms = []
+            for key in f["waveforms"].keys():
+                waveforms.append(torch.Tensor(f["waveforms"][key][start:stop]))
 
-    def slice_waveforms(self, waveforms: torch.Tensor):
-        """
-        Slice waveforms to the desired length;
-        **NOTE** it is assumed here that waveforms are centered;
-        """
-        center = waveforms.shape[-1] // 2
-        half = self.waveform_length // 2
-        start, stop = center - half, center + half
-        return waveforms[:, start:stop]
+        return torch.stack(waveforms, dim=0)
 
-    def sample(self, X):
+    def sample(self, X: torch.Tensor):
         """
         Sample method for generating training waveforms
         """
-        N = X.shape[0]
+        N = len(X)
+        idx = torch.randperm(self.num_train_waveforms)[:N]
+        waveforms = self.train_waveforms[:, idx]
 
-        idx = torch.randperm(len(self.train_waveforms))[:N]
-        waveforms = self.train_waveforms[idx]
-        parameters = {}
-        for k, v in self.train_parameters.items():
-            parameters[k] = v[idx]
-
-        cross, plus = waveforms
-        polarizations = {"cross": cross, "plus": plus}
-
-        return polarizations, parameters
+        hc, hp = waveforms
+        return hc, hp

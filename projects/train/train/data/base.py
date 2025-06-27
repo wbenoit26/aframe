@@ -27,6 +27,14 @@ Distribution = torch.distributions.Distribution
 TransformedDist = torch.distributions.TransformedDistribution
 
 
+# TODO
+# 1. Rejection sampling for validation (and training?)
+# 2. Enable loading training/validation waveforms from disk
+# 3. Remove reference frequency hardcoding in WaveformGenerator
+# 4. Create equivalent to `AmplfiPrior`?
+# N. Re-organize/streamline dataset/waveform sampler, etc.
+
+
 # TODO: using this right now because
 # lightning.pytorch.utilities.CombinedLoader
 # is not supported when calling `.fit`. Once
@@ -422,13 +430,14 @@ class BaseAframeDataset(pl.LightningDataModule):
             self.hparams.lowpass,
         )
 
-    def sample_extrinsic(self, N: int, device: str = "cpu"):
+    def sample_extrinsic(self, X: torch.Tensor):
         """
         Sample extrinsic parameters used to project waveforms
         """
-        dec = self.dec.sample((N,)).to(device)
-        psi = self.psi.sample((N,)).to(device)
-        phi = self.phi.sample((N,)).to(device)
+        N = len(X)
+        dec = self.dec.sample((N,)).to(X.device)
+        psi = self.psi.sample((N,)).to(X.device)
+        phi = self.phi.sample((N,)).to(X.device)
         return dec, psi, phi
 
     def setup(self, stage: str) -> None:
@@ -466,7 +475,10 @@ class BaseAframeDataset(pl.LightningDataModule):
         )
 
         self.val_waveforms = self.waveform_sampler.get_val_waveforms(
-            rank, world_size
+            world_size, rank
+        )
+        self.waveform_sampler.get_train_waveforms(
+            world_size, rank, self.device
         )
         self._logger.info("Initial dataloading complete")
 
@@ -554,8 +566,7 @@ class BaseAframeDataset(pl.LightningDataModule):
         X, psd = self.psd_estimator(background)
 
         # Sample sky locations and project polarizations
-        num_waveforms = len(cross)
-        dec, psi, phi = self.sample_extrinsic(num_waveforms, device=X.device)
+        dec, psi, phi = self.sample_extrinsic(cross)
         signals = self.projector(dec, psi, phi, cross=cross, plus=plus)
 
         # sometimes at the end of a segment, there won't be
@@ -613,7 +624,7 @@ class BaseAframeDataset(pl.LightningDataModule):
         # we're going to go through, then batch the
         # signals so that they're spaced evenly
         # throughout all those batches.
-        cross, plus, _ = self.val_waveforms
+        cross, plus = self.val_waveforms
         num_waveforms = len(cross)
         signal_batch_size = (num_waveforms - 1) // len(background_dataset) + 1
         signal_dataset = torch.utils.data.TensorDataset(cross, plus)

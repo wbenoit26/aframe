@@ -134,8 +134,7 @@ def rejection_sample(
         signals = projected[mask].numpy()
 
         for i, ifo in enumerate(ifos):
-            key = ifo.lower()
-            parameters[key][start:end] = signals[:, i]
+            parameters[ifo][start:end] = signals[:, i]
 
         # subtract off the number of samples we accepted
         # from the number we'll need to sample next time,

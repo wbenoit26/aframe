@@ -35,9 +35,16 @@ class WaveformGenerator(WaveformSampler):
         self.training_prior, _ = training_prior()
         self.num_val_waveforms = num_val_waveforms
 
-    def get_val_waveforms(self, _, world_size):
-        num_waveforms = self.num_val_waveforms // world_size
-        parameters = self.training_prior.sample(num_waveforms)
+    def get_train_waveforms(self, *_):
+        """
+        Method is not implemented for this class, as
+        waveforms are generated on the fly.
+        """
+        pass
+
+    def get_val_waveforms(self, world_size, _):
+        N = self.num_val_waveforms // world_size
+        parameters = self.training_prior.sample(N)
         parameter_set = BilbyParameterSet(**parameters)
         generation_params = parameter_set.generation_params(
             reference_frequency=40
@@ -46,19 +53,21 @@ class WaveformGenerator(WaveformSampler):
             k: torch.Tensor(v) for k, v in generation_params.items()
         }
         hc, hp = self(**generation_params)
-        return hc, hp, generation_params
+        return hc, hp
 
-    def sample(self, num_waveforms, device="cpu"):
-        parameters = self.training_prior.sample(num_waveforms)
+    def sample(self, X: torch.Tensor):
+        N = len(X)
+        parameters = self.training_prior.sample(N)
         parameter_set = BilbyParameterSet(**parameters)
         generation_params = parameter_set.generation_params(
             reference_frequency=40
         )
         generation_params = {
-            k: torch.Tensor(v).to(device) for k, v in generation_params.items()
+            k: torch.Tensor(v).to(X.device)
+            for k, v in generation_params.items()
         }
         hc, hp = self(**generation_params)
-        return hc, hp, generation_params
+        return hc, hp
 
     def forward(self):
         raise NotImplementedError

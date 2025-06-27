@@ -53,13 +53,10 @@ class SupervisedAframeDataset(BaseAframeDataset):
         rvs = torch.rand(size=X.shape[:1], device=X.device)
         mask = rvs < self.sample_prob
 
-        num_waveforms = mask.sum().item()
-        dec, psi, phi = self.sample_extrinsic(num_waveforms, device=X.device)
-        hc, hp, _ = self.waveform_sampler.sample(
-            num_waveforms, device=X.device
-        )
+        dec, psi, phi = self.sample_extrinsic(X[mask])
+        hc, hp = self.waveform_sampler.sample(X[mask])
 
-        snrs = self.snr_sampler.sample((num_waveforms,)).to(X.device)
+        snrs = self.snr_sampler.sample((mask.sum().item(),)).to(X.device)
         responses = self.projector(
             dec, psi, phi, snrs, psds[mask], cross=hc, plus=hp
         )
