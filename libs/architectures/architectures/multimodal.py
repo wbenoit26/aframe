@@ -16,8 +16,8 @@ class MultiModalPsd(SupervisedArchitecture):
     def __init__(
         self,
         num_ifos: int,
-        time_classes: int,
-        freq_classes: int,
+        time_context_dim: int,
+        freq_context_dim: int,
         time_layers: list[int],
         freq_layers: list[int],
         time_kernel_size: int = 3,
@@ -27,13 +27,13 @@ class MultiModalPsd(SupervisedArchitecture):
         width_per_group: int = 64,
         stride_type: Optional[list[Literal["stride", "dilation"]]] = None,
         norm_layer: Optional[NormLayer] = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__()
         self.time_domain_resnet = ResNet1D(
             in_channels=num_ifos,
             layers=time_layers,
-            classes=time_classes,
+            classes=time_context_dim,
             kernel_size=time_kernel_size,
             zero_init_residual=zero_init_residual,
             groups=groups,
@@ -45,7 +45,7 @@ class MultiModalPsd(SupervisedArchitecture):
         self.freq_psd_resnet = ResNet1D(
             in_channels=int(num_ifos * 3),
             layers=freq_layers,
-            classes=freq_classes,
+            classes=freq_context_dim,
             kernel_size=freq_kernel_size,
             zero_init_residual=zero_init_residual,
             groups=groups,
@@ -54,7 +54,9 @@ class MultiModalPsd(SupervisedArchitecture):
             norm_layer=norm_layer,
         )
 
-        self.classifier = torch.nn.Linear(time_classes + freq_classes, 1)
+        self.classifier = torch.nn.Linear(
+            time_context_dim + freq_context_dim, 1
+        )
 
     def forward(self, X):
         strain, psds = X

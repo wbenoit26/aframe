@@ -6,17 +6,20 @@
 # and specify a path to the desired checkpoint
 # ckpt_path: ""
 model:
-  class_path: train.model.SupervisedAframe
+  class_path: train.model.SupervisedMultiModalAframe
   init_args:
     # architecture
     arch:
-      class_path: architectures.supervised.SupervisedTimeDomainResNet
+      class_path: architectures.supervised.MultiModalPsd
       init_args:
-        layers: [3, 4, 6, 3]
+        time_context_dim: 8
+        freq_context_dim: 128
+        time_layers: [5, 3, 3]
+        freq_layers: [5, 3, 3]
         norm_layer:
           class_path: ml4gw.nn.norm.GroupNorm1DGetter
           init_args:
-            groups: 16
+            groups: 8
     metric:
       class_path: train.metrics.TimeSlideAUROC
       init_args:
@@ -28,7 +31,7 @@ model:
     learning_rate: 0.000585
     pct_lr_ramp: 0.115
 data:
-  class_path: train.data.supervised.TimeDomainSupervisedAframeDataset
+  class_path: train.data.supervised.MultiModalSupervisedAframeDataset
   init_args:
     # loading args
     # data_dir:
@@ -39,7 +42,7 @@ data:
     batches_per_epoch: 3700
     num_files_per_batch: 10
     # kernel_length:
-    psd_length: 8
+    psd_length: 10
     # fduration:
     # highpass: 
     # lowpass: 
@@ -70,11 +73,12 @@ data:
       class_path: train.data.waveforms.generator.cbc.CBCGenerator
       init_args:
         training_prior: priors.priors.end_o3_ratesandpops
-        num_val_waveforms: 10000
+        val_waveform_file: 
         approximant: ml4gw.waveforms.IMRPhenomPv2
         f_min: 20
         f_ref: 40
         right_pad: 0.5
+        kernel_length: 8
     # Extrinsic parameter distributions
     dec: 
       class_path: ml4gw.distributions.Cosine
@@ -93,7 +97,7 @@ data:
     # validation args
     valid_stride: 0.5
     num_valid_views: 5
-    valid_livetime: 57600
+    valid_livetime: 604800
 trainer:
   # by default, use a local CSV logger.
   # Options in train task for using a
