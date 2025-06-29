@@ -45,8 +45,14 @@ class ModelCheckpoint(pl.callbacks.ModelCheckpoint):
         device = pl_module.device
         [X] = next(iter(trainer.train_dataloader))
         X = X.to(device)
-        X, y = trainer.datamodule.inject(X)
-        trace = torch.jit.trace(module.model.to("cpu"), X.to("cpu"))
+        X, _ = trainer.datamodule.inject(X)
+        # If X is a tuple, it contains the strain and the PSD
+        if isinstance(X, tuple):
+            strain, psd = X
+            X = (strain.to("cpu"), psd.to("cpu"))
+        else:
+            X = X.to("cpu")
+        trace = torch.jit.trace(module.model.to("cpu"), X)
 
         save_dir = trainer.logger.save_dir
         if save_dir.startswith("s3://"):
