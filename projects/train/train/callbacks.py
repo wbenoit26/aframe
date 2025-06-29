@@ -89,14 +89,14 @@ class SaveAugmentedBatch(Callback):
 
             if save_dir.startswith("s3://"):
                 s3 = s3fs.S3FileSystem()
-                with s3.open(f"{save_dir}/batch.h5", "wb") as s3_file:
+                with s3.open(f"{save_dir}/batch.hdf5", "wb") as s3_file:
                     with io.BytesIO() as f:
                         with h5py.File(f, "w") as h5file:
                             h5file["X"] = X.cpu().numpy()
                             h5file["y"] = y.cpu().numpy()
                         s3_file.write(f.getvalue())
 
-                with s3.open(f"{save_dir}/val_batch.h5", "wb") as s3_file:
+                with s3.open(f"{save_dir}/val_batch.hdf5", "wb") as s3_file:
                     with io.BytesIO() as f:
                         with h5py.File(f, "w") as h5file:
                             h5file["X_bg"] = X_bg.cpu().numpy()

@@ -3,6 +3,8 @@ from typing import Callable
 import torch
 from ml4gw.waveforms.generator import TimeDomainCBCWaveformGenerator
 
+from ledger.injections import BilbyParameterSet
+
 from .generator import WaveformGenerator
 
 
@@ -46,14 +48,25 @@ class CBCGenerator(WaveformGenerator):
         super().__init__(*args, **kwargs)
         self.right_pad = right_pad
         self.approximant = approximant
+        self.f_ref = f_ref
         self.waveform_generator = TimeDomainCBCWaveformGenerator(
             approximant,
             self.sample_rate,
-            self.duration,
+            self.kernel_length,
             f_min,
             f_ref,
-            right_pad + self.fduration / 2,
+            right_pad,
         )
+
+    def convert(self, parameters):
+        for key in ["mass_1", "mass_2", "chirp_mass", "total_mass"]:
+            if key in parameters:
+                parameters[key] *= 1 + parameters["redshift"]
+        parameter_set = BilbyParameterSet(**parameters)
+        generation_params = parameter_set.generation_params(
+            reference_frequency=self.f_ref
+        )
+        return generation_params
 
     def forward(self, **parameters) -> torch.Tensor:
         hc, hp = self.waveform_generator(**parameters)

@@ -28,10 +28,10 @@ TransformedDist = torch.distributions.TransformedDistribution
 
 
 # TODO
-# 1. Rejection sampling for validation (and training?)
-# 2. Enable loading training/validation waveforms from disk
-# 3. Remove reference frequency hardcoding in WaveformGenerator
-# 4. Create equivalent to `AmplfiPrior`?
+# Rejection sampling for validation (and training)?
+# Create equivalent to `AmplfiPrior`?
+# Where to put source to detector frame conversion?
+# Set up Tasks
 # N. Re-organize/streamline dataset/waveform sampler, etc.
 
 
