@@ -1,4 +1,6 @@
+import h5py
 import torch
+from utils import x_per_y
 
 Distribution = torch.distributions.Distribution
 
@@ -41,12 +43,33 @@ class WaveformSampler(torch.nn.Module):
         """
         return self.fduration + self.kernel_length
 
-    def get_val_waveforms(self):
-        raise NotImplementedError
+    def get_slice_bounds(self, total, world_size, rank) -> tuple[int, int]:
+        """
+        Determine waveform indices to load for this device
+        given our rank and world size
+        """
+        per_dev = x_per_y(abs(total), world_size)
+        start = rank * per_dev
+        stop = (rank + 1) * per_dev
+        return start, stop
+
+    def get_val_waveforms(self, world_size, rank):
+        """
+        Returns validation waveforms for this device
+        """
+        start, stop = self.get_slice_bounds(
+            self.num_val_waveforms, world_size, rank
+        )
+        with h5py.File(self.val_waveform_file) as f:
+            waveforms = []
+            for key in f["waveforms"].keys():
+                waveforms.append(torch.Tensor(f["waveforms"][key][start:stop]))
+
+        return torch.stack(waveforms, dim=0)
 
     def get_test_waveforms(self):
         raise NotImplementedError
 
-    def sample(self, X: torch.Tensor):
+    def sample(self):
         """Defines how to sample waveforms for training"""
         raise NotImplementedError

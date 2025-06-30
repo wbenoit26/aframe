@@ -28,12 +28,10 @@ TransformedDist = torch.distributions.TransformedDistribution
 
 
 # TODO
-# Rejection sampling for validation (and training)?
 # Create equivalent to `AmplfiPrior`?
 # Make right_pad/coalescence_time parameterization consistent
-# Figure out how to pass validation waveform file path
-#
-# Set up Tasks
+# Ensure coalescence point placement is the same for training and validation
+# Add testing step
 # N. Re-organize/streamline dataset/waveform sampler, etc.
 
 

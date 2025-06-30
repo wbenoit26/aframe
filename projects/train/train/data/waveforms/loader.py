@@ -3,7 +3,6 @@ from pathlib import Path
 import h5py
 import torch
 
-from utils import x_per_y
 from .sampler import WaveformSampler
 
 
@@ -42,16 +41,6 @@ class WaveformLoader(WaveformSampler):
             key = list(f["waveforms"].keys())[0]
             self.num_val_waveforms = len(f["waveforms"][key])
 
-    def get_slice_bounds(self, total, world_size, rank) -> tuple[int, int]:
-        """
-        Determine waveform indices to load for this device
-        given our rank and world size
-        """
-        per_dev = x_per_y(abs(total), world_size)
-        start = rank * per_dev
-        stop = (rank + 1) * per_dev
-        return start, stop
-
     def get_train_waveforms(self, world_size, rank, device):
         """
         Returns train waveforms for this device
@@ -65,20 +54,6 @@ class WaveformLoader(WaveformSampler):
                 waveforms.append(torch.Tensor(f["waveforms"][key][start:stop]))
 
         self.train_waveforms = torch.stack(waveforms, dim=0).to(device)
-
-    def get_val_waveforms(self, world_size, rank):
-        """
-        Returns validation waveforms for this device
-        """
-        start, stop = self.get_slice_bounds(
-            self.num_val_waveforms, world_size, rank
-        )
-        with h5py.File(self.val_waveform_file) as f:
-            waveforms = []
-            for key in f["waveforms"].keys():
-                waveforms.append(torch.Tensor(f["waveforms"][key][start:stop]))
-
-        return torch.stack(waveforms, dim=0)
 
     def sample(self, X: torch.Tensor):
         """
