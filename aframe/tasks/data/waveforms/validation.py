@@ -112,9 +112,7 @@ class DeployValidationWaveforms(
         # read in psd
         with psd_segment.open("r") as psd_file:
             psd_file = h5py.File(io.BytesIO(psd_file.read()))
-            psds = load_psds(
-                psd_file, self.ifos, df=1 / self.waveform_duration
-            )
+            psd = load_psds(psd_file, self.ifos, df=1 / self.waveform_duration)
 
         # load in prior
         prior = load_prior(self.prior)
@@ -134,7 +132,7 @@ class DeployValidationWaveforms(
             highpass=self.highpass,
             lowpass=self.lowpass,
             snr_threshold=self.snr_threshold,
-            psds=psds,
+            psd=psd,
             max_num_samples=self.max_num_samples,
         )
         waveform_set = cls(**parameters)
