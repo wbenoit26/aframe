@@ -80,7 +80,7 @@ class SaveAugmentedBatch(Callback):
             [X] = next(iter(trainer.train_dataloader))
             X = X.to(device)
 
-            (X, _), y = trainer.datamodule.inject(X)
+            X, y = trainer.datamodule.inject(X)
 
             # build val batch by hand
             [background, _, _], [cross, plus] = next(
@@ -89,7 +89,7 @@ class SaveAugmentedBatch(Callback):
             background = background.to(device)
             cross = cross.to(device)
             plus = plus.to(device)
-            X_bg, X_inj, _ = trainer.datamodule.build_val_batches(
+            X_bg, X_inj = trainer.datamodule.build_val_batches(
                 background, cross, plus
             )
 

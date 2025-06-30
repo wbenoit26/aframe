@@ -12,8 +12,8 @@ model:
     arch:
       class_path: architectures.supervised.MultiModalPsd
       init_args:
-        time_context_dim: 12
-        freq_context_dim: 32
+        time_context_dim: 8
+        freq_context_dim: 128
         time_layers: [5, 3, 3]
         freq_layers: [5, 3, 3]
         norm_layer:
@@ -42,7 +42,7 @@ data:
     batches_per_epoch: 3700
     num_files_per_batch: 10
     # kernel_length:
-    psd_length: 32
+    psd_length: 10
     # fduration:
     # highpass: 
     # lowpass: 

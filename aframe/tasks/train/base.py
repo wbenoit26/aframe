@@ -57,18 +57,10 @@ class TrainBaseParameters(law.Task):
     )
     data_dir = PathParameter(
         description="Directory where training data is stored."
-        "It is expected to contain a `val_waveforms.hdf5` file of "
-        "signals for validation, a `/background` sub-directory containing "
-        "background, and a `train_waveforms.hdf5` file containing "
-        "training signals if `generate_train_waveforms` is set to False.",
+        "It is expected to contain a `signals.hdf5` file of signals, "
+        "and a `/background` sub-directory containing background "
+        "files used for training",
         default=paths().train_datadir,
-    )
-    generate_train_waveforms = luigi.BoolParameter(
-        default=True,
-        description="Whether to generate the training waveforms "
-        "in real-time during training. If False, the training waveforms "
-        "will be read from the `train_waveforms.hdf5` file in the data "
-        "directory.",
     )
 
 
@@ -77,9 +69,9 @@ class TrainBase(law.Task):
     def requires(self):
         reqs = {}
         reqs["strain"] = FetchTrain.req(self)
+        reqs["train_waveforms"] = TrainingWaveforms.req(self)
+
         reqs["val_waveforms"] = ValidationWaveforms.req(self)
-        if not self.generate_train_waveforms:
-            reqs["train_waveforms"] = TrainingWaveforms.req(self)
         return reqs
 
     def configure_wandb(self, args: List[str]) -> None:

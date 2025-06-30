@@ -29,7 +29,6 @@ TransformedDist = torch.distributions.TransformedDistribution
 
 # TODO
 # Create equivalent to `AmplfiPrior`?
-# Make right_pad/coalescence_time parameterization consistent
 # Ensure coalescence point placement is the same for training and validation
 # Add testing step
 # N. Re-organize/streamline dataset/waveform sampler, etc.
