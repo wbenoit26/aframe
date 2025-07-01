@@ -72,5 +72,7 @@ class CBCGenerator(WaveformGenerator):
         hc, hp = self.waveform_generator(**parameters)
         waveforms = torch.stack([hc, hp], dim=1)
         hc, hp = waveforms.transpose(1, 0)
+        if hp.isnan().any() or hc.isnan().any():
+            breakpoint()
 
         return hc.float(), hp.float()

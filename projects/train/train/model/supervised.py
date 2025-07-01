@@ -60,6 +60,82 @@ class SupervisedMultiModalAframe(SupervisedAframe):
         )
 
 
+class SupervisedMultiModalLocalize(SupervisedAframe):
+    def __init__(
+        self,
+        arch: SupervisedArchitecture,
+        lambda_1: float,
+        lambda_2: float,
+        *args,
+        **kwargs,
+    ) -> None:
+        super().__init__(arch, *args, **kwargs)
+        self.lambda_1 = lambda_1
+        self.lambda_2 = lambda_2
+
+    def train_step(self, batch: tuple[Tensor, Tensor]) -> Tensor:
+        X, y_class, y_loc = batch
+        y_hat_class, y_hat_loc = self(X)
+        mask = y_class.bool()
+        class_loss = torch.nn.functional.binary_cross_entropy_with_logits(
+            y_hat_class, y_class
+        )
+        loc_loss = torch.nn.functional.mse_loss(y_hat_loc[mask], y_loc[mask])
+        if loc_loss.isnan().any() or class_loss.isnan().any():
+            breakpoint()
+        return self.lambda_1 * class_loss + self.lambda_2 * loc_loss
+
+    def validation_step(self, batch, _) -> None:
+        shift, X_bg, X_inj, psds = batch
+
+        y_bg_class, _ = self.score((X_bg, psds))
+
+        # compute predictions over multiple views of
+        # each injection and use their average as our
+        # prediction
+        num_views, batch, *shape = X_inj.shape
+        X_inj = X_inj.view(num_views * batch, *shape)
+        psds = psds.repeat(num_views, 1, 1, 1)
+        num_views, batch, *shape = psds.shape
+        psds = psds.view(num_views * batch, *shape)
+        y_fg_class, y_fg_loc = self.score((X_inj, psds))
+        y_fg_class = y_fg_class.view(num_views, batch)
+        y_fg_class = y_fg_class.mean(0)
+        y_fg_loc = y_fg_loc.view(num_views, batch)
+
+        # include the shift associated with this data
+        # in our outputs to reconstruct background
+        # timeseries at aggregation time
+        self.metric.update(shift, y_bg_class, y_fg_class)
+
+        # lightning will take care of updating then
+        # computing the metric at the end of the
+        # validation epoch
+        self.log(
+            "valid_auroc",
+            self.metric,
+            on_step=True,
+            on_epoch=True,
+            sync_dist=True,
+        )
+
+        locs = torch.Tensor([0.25, 0.575, 0.9, 1.125, 1.45]).to(
+            y_fg_loc.device
+        )
+        locs /= 1.5
+        locs = locs.repeat(batch, 1).transpose(0, 1)
+        loc_loss = torch.nn.functional.mse_loss(y_fg_loc, locs)
+
+        self.log(
+            "valid_loc_loss",
+            loc_loss,
+            batch_size=batch,
+            on_step=True,
+            on_epoch=True,
+            sync_dist=True,
+        )
+
+
 class SupervisedAframeS4(SupervisedAframe):
     def __init__(self, arch: SupervisedArchitecture, *args, **kwargs) -> None:
         super().__init__(arch, *args, **kwargs)

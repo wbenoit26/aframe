@@ -27,12 +27,13 @@ Distribution = torch.distributions.Distribution
 TransformedDist = torch.distributions.TransformedDistribution
 
 
-# TODO
-# Create equivalent to `AmplfiPrior`?
-# Make right_pad/coalescence_time parameterization consistent
+# TODO:
+# Make the coalescence point/right pad parameterization consistent
 # Ensure coalescence point placement is the same for training and validation
+# Add ml4gw distributions for training prior
+# Split up training and testing priors
 # Add testing step
-# N. Re-organize/streamline dataset/waveform sampler, etc.
+# Have model predict coalescence time
 
 
 # TODO: using this right now because
@@ -285,6 +286,13 @@ class BaseAframeDataset(pl.LightningDataModule):
         """
         return int(self.hparams.right_pad * self.hparams.sample_rate)
 
+    @property
+    def kernel_size(self) -> int:
+        """
+        Number of samples in the whitened kernel
+        """
+        return int(self.hparams.kernel_length * self.hparams.sample_rate)
+
     def train_val_split(self) -> tuple[Sequence[str], Sequence[str]]:
         fnames = glob.glob(f"{self.data_dir}/background/*.hdf5")
         fnames = sorted([Path(fname) for fname in fnames])
@@ -347,20 +355,17 @@ class BaseAframeDataset(pl.LightningDataModule):
         signal_idx = waveforms.shape[-1] - int(
             self.waveform_sampler.right_pad * self.hparams.sample_rate
         )
-        kernel_size = int(
-            self.hparams.kernel_length * self.hparams.sample_rate
-        )
 
-        if kernel_size < self.left_pad_size + self.right_pad_size:
+        if self.kernel_size < self.left_pad_size + self.right_pad_size:
             raise ValueError(
-                f"Kernel size ({kernel_size}) cannot be less than total "
+                f"Kernel size ({self.kernel_size}) cannot be less than total "
                 f"padding ({self.left_pad_size} + {self.right_pad_size})"
             )
 
-        signal_start = signal_idx - (kernel_size - self.right_pad_size)
+        signal_start = signal_idx - (self.kernel_size - self.right_pad_size)
         signal_start -= self.filter_size // 2
 
-        signal_stop = signal_idx + (kernel_size - self.left_pad_size)
+        signal_stop = signal_idx + (self.kernel_size - self.left_pad_size)
         signal_stop += self.filter_size // 2
 
         # If signal_start is less than 0, add padding on the left
@@ -563,7 +568,14 @@ class BaseAframeDataset(pl.LightningDataModule):
         background = unfold_windows(background, sample_size, stride=stride)
 
         # split data into kernel and psd data and estimate psd
-        X, psd = self.psd_estimator(background)
+        X, psds = self.psd_estimator(background)
+
+        # calculate asds and highpass
+        freqs = torch.fft.rfftfreq(X.shape[-1], d=1 / self.hparams.sample_rate)
+        num_freqs = len(freqs)
+        psds = torch.nn.functional.interpolate(
+            psds, size=(num_freqs,), mode="linear"
+        )
 
         # Sample sky locations and project polarizations
         dec, psi, phi = self.sample_extrinsic(cross)
@@ -577,9 +589,9 @@ class BaseAframeDataset(pl.LightningDataModule):
             signals = signals[: len(X)]
         else:
             X = X[::step][: len(signals)]
-            psd = psd[::step][: len(signals)]
+            psds = psds[::step][: len(signals)]
 
-        # create `num_view` instances of the injection on top ofq
+        # create `num_view` instances of the injection on top of
         # the background, each showing a different, overlapping
         # portion of the signal
         kernel_size = X.size(-1)
@@ -608,7 +620,7 @@ class BaseAframeDataset(pl.LightningDataModule):
             injected = X + signals[:, :, int(start) : int(stop)]
             X_inj.append(injected)
         X_inj = torch.stack(X_inj)
-        return X, X_inj, psd
+        return X, X_inj, psds
 
     def val_dataloader(self) -> ZippedDataset:
         """

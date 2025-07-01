@@ -12,6 +12,7 @@ From: ghcr.io/astral-sh/uv:0.6.10-python3.10-bookworm-slim
 ../../libs/ledger /opt/aframe/libs/ledger
 ../../libs/priors /opt/aframe/libs/priors
 ../../libs/architectures /opt/aframe/libs/architectures
+../../../ml4gw /opt/ml4gw
 
 %post
 apt-get update
