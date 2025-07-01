@@ -116,8 +116,8 @@ def rejection_sample(
         # If we've generated more signals than we need,
         # figure out where to cut off the arrays
         if num_signals < total_accepted:
-            num_extra = total_accepted - num_signals
-            idx = np.where(np.cumsum(mask) == num_extra)[0][0] + 1
+            target_accepted = num_signals - (total_accepted - num_accepted)
+            idx = np.where(np.cumsum(mask) == target_accepted)[0][0] + 1
             mask = mask[:idx]
             projected = projected[:idx]
             params = {k: v[:idx] for k, v in params.items()}
@@ -144,6 +144,13 @@ def rejection_sample(
         start, end = total_accepted - num_accepted, total_accepted
         for key, value in params.items():
             parameters[key][start:end] = value[mask]
+
+        if (parameters["mass_1"][:end] == 0).any():
+            raise ValueError(
+                f"start: {start}, end: {end}, num_accepted: {num_accepted} "
+                f"total_accepted: {total_accepted}, "
+                f"mass_1: {parameters['mass_1'][:end]}"
+            )
 
         # insert either the projected waveforms or the raw waveforms
         signals = projected[mask].numpy()
