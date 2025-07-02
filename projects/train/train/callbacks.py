@@ -45,14 +45,12 @@ class ModelCheckpoint(pl.callbacks.ModelCheckpoint):
         device = pl_module.device
         [X] = next(iter(trainer.train_dataloader))
         X = X.to(device)
-        X, _ = trainer.datamodule.inject(X)
-        # If X is a tuple, it contains the strain and the PSD
-        if isinstance(X, tuple):
-            strain, psd = X
-            X = (strain.to("cpu"), psd.to("cpu"))
-        else:
-            X = X.to("cpu")
-        trace = torch.jit.trace(module.model.to("cpu"), X)
+        strain, asds, _ = trainer.datamodule.inject(X)
+        X = (strain.to("cpu"), asds.to("cpu"))
+        model = module.model.to("cpu")
+        trace = torch.jit.trace(model, X)
+
+        exported_model = torch.export.export(model, X)
 
         save_dir = trainer.logger.save_dir
         if save_dir.startswith("s3://"):
@@ -61,11 +59,38 @@ class ModelCheckpoint(pl.callbacks.ModelCheckpoint):
                 torch.jit.save(trace, f)
 
             s3.copy(self.best_model_path, f"{save_dir}/best.ckpt")
+            with s3.open(f"{save_dir}/model.onnx", "wb") as f:
+                torch.onnx.export(
+                    exported_model,
+                    X,
+                    f,
+                    input_names=["X", "asds"],
+                    output_names=["y"],
+                    opset_version=17,
+                    dynamic_axes={
+                        "X": {0: "batch_size"},
+                        "asds": {0: "batch_size"},
+                        "y": {0: "batch_size"},
+                    },
+                )
         else:
             with open(os.path.join(save_dir, "model.pt"), "wb") as f:
                 torch.jit.save(trace, f)
             shutil.copy(
                 self.best_model_path, os.path.join(save_dir, "best.ckpt")
+            )
+            torch.onnx.export(
+                exported_model,
+                X,
+                os.path.join(save_dir, "model.onnx"),
+                input_names=["X", "asds"],
+                output_names=["y"],
+                opset_version=17,
+                dynamic_axes={
+                    "X": {0: "batch_size"},
+                    "asds": {0: "batch_size"},
+                    "y": {0: "batch_size"},
+                },
             )
 
 
@@ -80,7 +105,7 @@ class SaveAugmentedBatch(Callback):
             [X] = next(iter(trainer.train_dataloader))
             X = X.to(device)
 
-            (X, _), y, _ = trainer.datamodule.inject(X)
+            X, asds, y = trainer.datamodule.inject(X)
 
             # build val batch by hand
             [background, _, _], [cross, plus] = next(
@@ -100,6 +125,7 @@ class SaveAugmentedBatch(Callback):
                         with h5py.File(f, "w") as h5file:
                             h5file["X"] = X.cpu().numpy()
                             h5file["y"] = y.cpu().numpy()
+                            h5file["asds"] = asds.cpu().numpy()
                         s3_file.write(f.getvalue())
 
                 with s3.open(f"{save_dir}/val_batch.hdf5", "wb") as s3_file:
@@ -112,6 +138,7 @@ class SaveAugmentedBatch(Callback):
                 with h5py.File(os.path.join(save_dir, "batch.h5"), "w") as f:
                     f["X"] = X.cpu().numpy()
                     f["y"] = y.cpu().numpy()
+                    f["asds"] = asds.cpu().numpy()
 
                 with h5py.File(
                     os.path.join(save_dir, "val_batch.h5"), "w"

@@ -13,6 +13,7 @@ license = "MIT"
 dependencies = [
     "torchmetrics>=0.11,<0.12",
     "torch==2.5.0",
+    "onnxscript>=0.3",
     "lightning==2.2.1",
     "jsonargparse[signatures]~=4.29",
     "wandb>=0.15",

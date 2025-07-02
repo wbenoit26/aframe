@@ -33,6 +33,7 @@ TransformedDist = torch.distributions.TransformedDistribution
 # Add ml4gw distributions for training prior
 # Split up training and testing priors
 # Add testing step
+# Figure out export
 # Have model predict coalescence time
 
 
@@ -528,8 +529,8 @@ class BaseAframeDataset(pl.LightningDataModule):
             # much data from CPU to GPU. Once everything is
             # on-device, pre-inject signals into background.
             shift = self.timeslides[timeslide_idx].shift_size
-            X_bg, X_fg = self.build_val_batches(background, cross, plus)
-            batch = (shift, X_bg, X_fg)
+            X_bg, X_fg, asds = self.build_val_batches(background, cross, plus)
+            batch = (shift, X_bg, X_fg, asds)
         return batch
 
     @torch.no_grad()
@@ -539,6 +540,25 @@ class BaseAframeDataset(pl.LightningDataModule):
         application-specific augmentations
         """
         raise NotImplementedError
+
+    @torch.no_grad()
+    def interpolate_psds(self, X: Tensor, psds: Tensor) -> Tensor:
+        """
+        Interpolate the PSDs to match the dimension of the FFT of
+        the input, and filter to between the highpass and lowpass
+        frequencies
+        """
+        freqs = torch.fft.rfftfreq(X.shape[-1], d=1 / self.hparams.sample_rate)
+        num_freqs = len(freqs)
+        psds = torch.nn.functional.interpolate(
+            psds, size=(num_freqs,), mode="linear"
+        )
+
+        mask = freqs > self.hparams.highpass
+        if self.hparams.lowpass is not None:
+            mask *= freqs < self.hparams.lowpass
+        psds = psds[:, :, mask]
+        return psds
 
     # ================================================ #
     # Utilities for building train and validation dataloaders
@@ -569,13 +589,6 @@ class BaseAframeDataset(pl.LightningDataModule):
 
         # split data into kernel and psd data and estimate psd
         X, psds = self.psd_estimator(background)
-
-        # calculate asds and highpass
-        freqs = torch.fft.rfftfreq(X.shape[-1], d=1 / self.hparams.sample_rate)
-        num_freqs = len(freqs)
-        psds = torch.nn.functional.interpolate(
-            psds, size=(num_freqs,), mode="linear"
-        )
 
         # Sample sky locations and project polarizations
         dec, psi, phi = self.sample_extrinsic(cross)
@@ -620,7 +633,24 @@ class BaseAframeDataset(pl.LightningDataModule):
             injected = X + signals[:, :, int(start) : int(stop)]
             X_inj.append(injected)
         X_inj = torch.stack(X_inj)
-        return X, X_inj, psds
+
+        X_bg = self.whitener(X, psds)
+
+        # Interpolate the psds to match the size of the FFT
+        # of X after whitening
+        psds = self.interpolate_psds(X_bg, psds)
+
+        # whiten each view of injections
+        X_fg = []
+        for inj in X_inj:
+            inj = self.whitener(inj, psds)
+            X_fg.append(inj)
+
+        X_fg = torch.stack(X_fg)
+
+        asds = torch.sqrt(psds)
+
+        return X_bg, X_fg, asds
 
     def val_dataloader(self) -> ZippedDataset:
         """

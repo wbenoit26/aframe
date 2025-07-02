@@ -84,4 +84,10 @@ class SupervisedAframeDataset(BaseAframeDataset):
         y = torch.zeros((X.size(0), 1), device=X.device)
         y[mask] += 1
 
-        return X, y, psds
+        X = self.whitener(X, psds)
+        # Interpolate PSDs to match the shape of the FFT
+        # of X after whitening
+        psds = self.interpolate_psds(X, psds)
+        asds = torch.sqrt(psds)
+
+        return X, asds, y

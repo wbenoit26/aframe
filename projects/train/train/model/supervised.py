@@ -27,19 +27,19 @@ class SupervisedMultiModalAframe(SupervisedAframe):
         super().__init__(arch, *args, **kwargs)
 
     def validation_step(self, batch, _) -> None:
-        shift, X_bg, X_inj, psds = batch
+        shift, X_bg, X_inj, asds = batch
 
-        y_bg = self.score((X_bg, psds))
+        y_bg = self.score(X_bg, asds)
 
         # compute predictions over multiple views of
         # each injection and use their average as our
         # prediction
         num_views, batch, *shape = X_inj.shape
         X_inj = X_inj.view(num_views * batch, *shape)
-        psds = psds.repeat(num_views, 1, 1, 1)
-        num_views, batch, *shape = psds.shape
-        psds = psds.view(num_views * batch, *shape)
-        y_fg = self.score((X_inj, psds))
+        asds = asds.repeat(num_views, 1, 1, 1)
+        num_views, batch, *shape = asds.shape
+        asds = asds.view(num_views * batch, *shape)
+        y_fg = self.score(X_inj, asds)
         y_fg = y_fg.view(num_views, batch)
         y_fg = y_fg.mean(0)
 
@@ -58,6 +58,17 @@ class SupervisedMultiModalAframe(SupervisedAframe):
             on_epoch=True,
             sync_dist=True,
         )
+
+    def forward(self, X, asds):
+        return self.model(X, asds)
+
+    def train_step(self, batch: tuple[Tensor, Tensor]) -> Tensor:
+        X, asds, y = batch
+        y_hat = self(X, asds)
+        return torch.nn.functional.binary_cross_entropy_with_logits(y_hat, y)
+
+    def score(self, X, asds):
+        return self(X, asds)
 
 
 class SupervisedMultiModalLocalize(SupervisedAframe):

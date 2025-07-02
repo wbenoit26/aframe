@@ -9,6 +9,7 @@ class AframeCLI(LightningCLI):
     def __init__(self, *args, **kwargs):
         # hack into init to hardcode
         # the WandbSaveConfig callback
+        kwargs["parser_kwargs"] = {"parser_mode": "omegaconf"}
         kwargs["save_config_callback"] = WandbSaveConfig
         super().__init__(*args, **kwargs)
 

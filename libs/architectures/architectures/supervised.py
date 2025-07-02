@@ -208,7 +208,7 @@ class SupervisedMultiModalPsd(SupervisedArchitecture):
             norm_layer=norm_layer,
         )
 
-        self.freq_psd_resnet = ResNet1D(
+        self.freq_asd_resnet = ResNet1D(
             in_channels=int(num_ifos * 3),
             layers=freq_layers,
             classes=freq_context_dim,
@@ -220,14 +220,13 @@ class SupervisedMultiModalPsd(SupervisedArchitecture):
             norm_layer=norm_layer,
         )
 
-        self.classifier = torch.nn.Linear(
-            time_context_dim + freq_context_dim, 1
+        self.classifier = torch.nn.Sequential(
+            torch.nn.Linear(time_context_dim + freq_context_dim, 128),
+            torch.nn.ReLU(),
+            torch.nn.Linear(128, 1),
         )
 
-    def forward(self, X):
-        strain, psds = X
-        asds = psds**0.5
-
+    def forward(self, strain: torch.Tensor, asds: torch.Tensor):
         asds *= 1e23
         asds = asds.float()
         inv_asds = 1 / asds
@@ -237,7 +236,7 @@ class SupervisedMultiModalPsd(SupervisedArchitecture):
         X_fft = torch.fft.rfft(strain)
         X_fft = X_fft[..., -asds.shape[-1] :]
         X_fft = torch.cat((X_fft.real, X_fft.imag, inv_asds), dim=1)
-        freq_domain_output = self.freq_psd_resnet(X_fft)
+        freq_domain_output = self.freq_asd_resnet(X_fft)
 
         concat = torch.cat([time_domain_output, freq_domain_output], dim=-1)
         return self.classifier(concat)
