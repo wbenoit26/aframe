@@ -42,7 +42,7 @@ class DeployValidationWaveforms(
     background_dir = PathParameter(
         description="Directory containing background strain data into "
         "which waveforms will be injected during validation",
-        default=paths().train_background_dir,
+        default=paths().background_dir / "train",
     )
     output_dir = PathParameter(
         description="Directory where merged training waveforms will be saved",

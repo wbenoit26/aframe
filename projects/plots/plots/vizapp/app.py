@@ -50,7 +50,7 @@ class App:
 
         # set attributes that will be accessible
         # to downstream pages
-        self.background_dir = background_dir
+        self.background_dir = background_dir / "test"
         self.waveforms_dir = waveforms_dir
         self.results_dir = results_dir
         self.ifos = ifos

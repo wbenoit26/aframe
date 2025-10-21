@@ -208,9 +208,8 @@ def create_offline_runfile(
     content = f"""
     #!/bin/bash
     # Export environment variables
-    export AFRAME_TRAIN_BACKGROUND_DIR=
+    export AFRAME_BACKGROUND_DIR=
     export AFRAME_TRAIN_WAVEFORMS_DIR={base}/data/train
-    export AFRAME_TEST_BACKGROUND_DIR=
     export AFRAME_TEST_WAVEFORMS_DIR={path}/data/test
     export AFRAME_TRAIN_RUN_DIR={base}/training
     export AFRAME_CONDOR_DIR={path}/condor

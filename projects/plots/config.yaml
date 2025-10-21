@@ -2,7 +2,7 @@ port: 5005
 app:
   init_args:
     weights: ${oc.env:AFRAME_TRAIN_RUN_DIR}/model.pt
-    background_dir: ${oc.env:AFRAME_TEST_BACKGROUND_DIR}
+    background_dir: ${oc.env:AFRAME_BACKGROUND_DIR}
     waveforms_dir: ${oc.env:AFRAME_TEST_WAVEFORMS_DIR}
     results_dir: ${oc.env:AFRAME_RESULTS_DIR}
     fftlength: 2

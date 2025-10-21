@@ -1,9 +1,7 @@
-import glob
 import logging
 import os
 import sys
 from collections.abc import Sequence
-from pathlib import Path
 from typing import Callable, Optional, Union
 
 import h5py
@@ -67,7 +65,8 @@ class BaseAframeDataset(pl.LightningDataModule):
 
     Args:
         background_dir:
-            Path to the directory containing the training background.
+            Path to the directory containing the training
+            and testing background strain data.
             If this is a s3 bucket, it will be downloaded
             to a local directory.
         waveforms_dir:
@@ -342,8 +341,8 @@ class BaseAframeDataset(pl.LightningDataModule):
         Split background files into training and validation sets
         based on the requested duration of the validation set
         """
-        fnames = glob.glob(f"{self.background_dir}/background/*.hdf5")
-        fnames = sorted([Path(fname) for fname in fnames])
+        background_dir = self.background_dir / "train" / "background"
+        fnames = sorted(background_dir.glob("*.hdf5"))
         durations = [int(fname.stem.split("-")[-1]) for fname in fnames]
         valid_fnames = []
         valid_duration = 0
@@ -365,6 +364,21 @@ class BaseAframeDataset(pl.LightningDataModule):
         )
 
         return train_fnames, valid_fnames
+
+    def get_test_fnames(self) -> Sequence[str]:
+        """List of background files used for testing a trained model"""
+        test_dir = self.background / "test" / "background"
+        fnames = list(test_dir.glob("*.hdf5"))
+
+        duration = (
+            sum([int(fname.stem.split("-")[-1]) for fname in fnames])
+            / SECONDS_PER_DAY
+        )
+        self._logger.info(
+            f"Using {len(fnames)} files with a total duration "
+            f"of {duration:.3f} days for testing"
+        )
+        return fnames
 
     @property
     def val_batch_size(self):

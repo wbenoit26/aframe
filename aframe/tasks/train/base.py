@@ -53,11 +53,12 @@ class TrainBaseParameters(law.Task):
         default=paths().train_rundir,
     )
     background_dir = PathParameter(
-        description="Directory where training background is stored."
-        "It is expected to contain a set of hdf5 files with names "
-        "`background-<gps_start_time>_<duration>.hdf5` containing "
-        "strain data.",
-        default=paths().train_background_dir,
+        description="Directory where training and testing background "
+        "strain data is stored. It is expected to contain a `train` "
+        "and a `test` directory, each of which contains a `background` "
+        "directory with a set of hdf5 files adhering to the naming "
+        "convention `background-<gps_start_time>_<duration>.hdf5`.",
+        default=paths().background_dir,
     )
     waveforms_dir = PathParameter(
         description="Directory where training waveforms are stored."

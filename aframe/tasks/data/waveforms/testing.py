@@ -61,7 +61,7 @@ class TestingWaveformsParams(WaveformParams):
     background_dir = PathParameter(
         description="Directory containing background strain data into "
         "which waveforms will be injected during inference",
-        default=paths().test_background_dir,
+        default=paths().background_dir / "test",
     )
     output_dir = PathParameter(
         description="Directory where merged waveforms and "

@@ -109,10 +109,10 @@ class Fetch(law.LocalWorkflow, StaticMemoryWorkflow, AframeDataTask):
 class FetchTest(Fetch):
     condor_directory = PathParameter(default=paths().condor_dir / "fetch_test")
     data_dir = PathParameter(
-        default=paths().test_background_dir / "background"
+        default=paths().background_dir / "test" / "background"
     )
     segments_file = PathParameter(
-        default=paths().test_background_dir / "segments.txt"
+        default=paths().background_dir / "test" / "segments.txt"
     )
 
 
@@ -121,8 +121,8 @@ class FetchTrain(Fetch):
         default=paths().condor_dir / "fetch_train"
     )
     data_dir = PathParameter(
-        default=paths().train_background_dir / "background"
+        default=paths().background_dir / "train" / "background"
     )
     segments_file = PathParameter(
-        default=paths().train_background_dir / "segments.txt"
+        default=paths().background_dir / "train" / "segments.txt"
     )

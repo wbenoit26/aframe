@@ -25,9 +25,8 @@ S3_ENV_VARS = [
 # that should be mounted so that users
 # can point to one anothers directories
 AFRAME_DATA_DIRS = [
-    "AFRAME_TRAIN_BACKGROUND_DIR",
+    "AFRAME_BACKGROUND_DIR",
     "AFRAME_TRAIN_WAVEFORMS_DIR",
-    "AFRAME_TEST_BACKGROUND_DIR",
     "AFRAME_TEST_WAVEFORMS_DIR",
     "AFRAME_TRAIN_RUN_DIR",
 ]
