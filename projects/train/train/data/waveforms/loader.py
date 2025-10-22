@@ -46,9 +46,6 @@ class WaveformLoader(WaveformSampler):
                 "right pad as validation waveform file"
             )
 
-    def get_train_waveforms(self, world_size, rank, device):
-        pass
-
 
 # TODO: move to ml4gw
 class Hdf5WaveformLoader(torch.utils.data.IterableDataset):

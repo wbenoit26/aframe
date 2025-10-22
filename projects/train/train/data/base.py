@@ -367,7 +367,7 @@ class BaseAframeDataset(pl.LightningDataModule):
 
     def get_test_fnames(self) -> Sequence[str]:
         """List of background files used for testing a trained model"""
-        test_dir = self.background / "test" / "background"
+        test_dir = self.background_dir / "test" / "background"
         fnames = list(test_dir.glob("*.hdf5"))
 
         duration = (
@@ -496,45 +496,55 @@ class BaseAframeDataset(pl.LightningDataModule):
     def setup(self, stage: str) -> None:
         world_size, rank = self.get_world_size_and_rank()
         self._logger = self.get_logger(world_size, rank)
-        self.train_fnames, self.valid_fnames = self.train_val_split()
 
-        with h5py.File(self.train_fnames[0], "r") as f:
+        self._logger.info(f"Setting up data for stage {stage}")
+        if stage in ["fit", "validate"]:
+            self.train_fnames, self.valid_fnames = self.train_val_split()
+
+        elif stage == "test":
+            self.test_fnames = self.get_test_fnames()
+
+        # infer sample rate directly from background data
+        # and validate that it matches specified sample rate
+        sample_file = (
+            self.train_fnames[0]
+            if stage in ["fit", "validate"]
+            else self.test_fnames[0]
+        )
+        with h5py.File(sample_file, "r") as f:
             sample_rate = 1 / f[self.hparams.ifos[0]].attrs["dx"]
-            if not sample_rate == self.hparams.sample_rate:
-                raise ValueError(
-                    f"Specified sample rate is {self.hparams.sample_rate} "
-                    f"but background data is sampled at {sample_rate}"
-                )
+            assert sample_rate == self.hparams.sample_rate
 
-        self._logger.info(f"Validated sample rate {sample_rate}")
+        self._logger.info(f"Inferred sample rate of {sample_rate} Hz")
 
-        # load in our validation background up front and
-        # compute which timeslides we'll do on this device
-        # if we're doing distributed training so we'll know
-        # which waveforms to subsample
+        if stage in ["fit", "validate"]:
+            # load in our validation background up front and
+            # compute which timeslides we'll do on this device
+            # if we're doing distributed training so we'll know
+            # which waveforms to subsample
 
-        val_background = self.load_val_background(self.valid_fnames)
-        self._logger.info(
-            "Constructing validation timeslides from background segments "
-            f"{' '.join(self.valid_fnames)}"
-        )
-        self.timeslides, self.valid_loader_length = get_timeslides(
-            val_background,
-            self.hparams.valid_livetime,
-            self.hparams.sample_rate,
-            self.sample_length,
-            self.hparams.valid_stride,
-            self.val_batch_size,
-        )
-
-        self.val_waveforms = self.waveform_sampler.get_val_waveforms(
-            world_size, rank
-        )
-        if self.waveforms_from_disk:
-            self.waveform_sampler.get_train_waveforms(
-                world_size, rank, self.device
+            self._logger.info(
+                "Constructing validation timeslides from background segments "
+                f"{' '.join(self.valid_fnames)}"
             )
-        self._logger.info("Initial dataloading complete")
+            val_background = self.load_val_background(self.valid_fnames)
+            self.timeslides, self.valid_loader_length = get_timeslides(
+                val_background,
+                self.hparams.valid_livetime,
+                self.hparams.sample_rate,
+                self.sample_length,
+                self.hparams.valid_stride,
+                self.val_batch_size,
+            )
+            self.val_waveforms = self.waveform_sampler.get_val_waveforms(
+                world_size, rank
+            )
+            self._logger.info(
+                f"Loaded {len(self.val_waveforms)} waveforms for validation"
+            )
+            self._logger.info("Initial dataloading complete")
+        elif stage == "test":
+            pass
 
         # now define some of the augmentation transforms
         # that require sample rate information
@@ -682,7 +692,6 @@ class BaseAframeDataset(pl.LightningDataModule):
         background_dataset = pl.utilities.combined_loader.CombinedLoader(
             self.timeslides, mode="sequential"
         )
-        iter(background_dataset)  # gives it a __len__ property
 
         # Figure out how many batches of background
         # we're going to go through, then batch the

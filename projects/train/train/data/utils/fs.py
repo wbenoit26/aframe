@@ -3,6 +3,7 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
+from pathlib import Path
 from tempfile import gettempdir
 
 import s3fs
@@ -48,7 +49,7 @@ def get_data_dir(data_dir: str):
 
     logging.info(f"Downloading data to {data_dir}")
     os.makedirs(data_dir, exist_ok=True)
-    return data_dir
+    return Path(data_dir)
 
 
 def _download(
