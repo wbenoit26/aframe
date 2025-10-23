@@ -24,6 +24,7 @@ dependencies = [
     "utils",
     "ml4gw>=0.7.7",
     "aframe",
+    "infer",
     "ledger",
     "priors",
     "architectures",
@@ -52,6 +53,7 @@ explicit = true
 [tool.uv.sources]
 utils = { path = "../../libs/utils", editable = true }
 aframe = { path = "../..", editable = true }
+infer = { path = "../../libs/infer", editable = true }
 ledger = { path = "../../libs/ledger", editable = true }
 priors = { path = "../../libs/priors", editable = true }
 architectures = { path = "../../libs/architectures", editable = true }

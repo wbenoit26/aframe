@@ -199,6 +199,9 @@ class AframeBase(pl.LightningModule):
             sync_dist=True,
         )
 
+    def test_step(self, batch, _):
+        pass
+
     def configure_optimizers(self):
         if not torch.distributed.is_initialized():
             world_size = 1

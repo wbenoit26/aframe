@@ -9,6 +9,7 @@ From: ghcr.io/astral-sh/uv:0.6.10-python3.10-bookworm-slim
 ../../libs/utils /opt/aframe/libs/utils
 ../../aframe /opt/aframe/aframe
 ../../pyproject.toml /opt/aframe/pyproject.toml
+../../libs/infer /opt/aframe/libs/infer
 ../../libs/ledger /opt/aframe/libs/ledger
 ../../libs/priors /opt/aframe/libs/priors
 ../../libs/architectures /opt/aframe/libs/architectures

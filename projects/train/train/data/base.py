@@ -12,6 +12,7 @@ from ml4gw.dataloading import Hdf5TimeSeriesDataset
 from ml4gw.transforms import Whiten
 from ml4gw.utils.slicing import unfold_windows
 
+from infer import Sequence as InferSequence
 from train import augmentations as aug
 from train.data.utils import fs as fs_utils
 from train.metrics import get_timeslides
@@ -21,7 +22,11 @@ from train.data.waveforms import (
     WaveformLoader,
     WaveformSampler,
 )
-from utils.preprocessing import PsdEstimator
+from utils.preprocessing import (
+    BackgroundSnapshotter,
+    BatchWhitener,
+    PsdEstimator,
+)
 
 Tensor = torch.Tensor
 Distribution = torch.distributions.Distribution
@@ -483,6 +488,23 @@ class BaseAframeDataset(pl.LightningDataModule):
             self.hparams.lowpass,
         )
 
+        self.snapshotter = BackgroundSnapshotter(
+            psd_length=64,
+            kernel_length=1.5,
+            fduration=1,
+            sample_rate=2048,
+            inference_sampling_rate=4,
+        )
+        self.batch_whitener = BatchWhitener(
+            kernel_length=1.5,
+            sample_rate=2048,
+            inference_sampling_rate=4,
+            batch_size=128,
+            fduration=1,
+            fftlength=fftlength,
+            highpass=32,
+        )
+
     def sample_extrinsic(self, X: torch.Tensor):
         """
         Sample extrinsic parameters used to project waveforms
@@ -684,35 +706,6 @@ class BaseAframeDataset(pl.LightningDataModule):
 
         return X, X_inj, psd
 
-    def val_dataloader(self) -> ZippedDataset:
-        """
-        Validation dataloader will iterate through batches
-        in timeslides, returning both
-        """
-        background_dataset = pl.utilities.combined_loader.CombinedLoader(
-            self.timeslides, mode="sequential"
-        )
-
-        # Figure out how many batches of background
-        # we're going to go through, then batch the
-        # signals so that they're spaced evenly
-        # throughout all those batches.
-        num_waveforms = len(self.val_waveforms)
-        signal_batch_size = (num_waveforms - 1) // self.valid_loader_length + 1
-        signal_dataset = torch.utils.data.TensorDataset(self.val_waveforms)
-        signal_loader = torch.utils.data.DataLoader(
-            signal_dataset,
-            batch_size=signal_batch_size,
-            shuffle=False,
-            pin_memory=False,
-        )
-        dataset = ZippedDataset(
-            background_dataset,
-            signal_loader,
-            minimum=min(self.valid_loader_length, len(signal_loader)),
-        )
-        return dataset
-
     def train_dataloader(self) -> torch.utils.data.DataLoader:
         # build our strain dataset and dataloader
         dataset = Hdf5TimeSeriesDataset(
@@ -784,3 +777,48 @@ class BaseAframeDataset(pl.LightningDataModule):
         )
 
         return ZippedDataset(dataloader, waveform_dataset)
+
+    def val_dataloader(self) -> ZippedDataset:
+        """
+        Validation dataloader will iterate through batches
+        in timeslides, returning both
+        """
+        background_dataset = pl.utilities.combined_loader.CombinedLoader(
+            self.timeslides, mode="sequential"
+        )
+
+        # Figure out how many batches of background
+        # we're going to go through, then batch the
+        # signals so that they're spaced evenly
+        # throughout all those batches.
+        num_waveforms = len(self.val_waveforms)
+        signal_batch_size = (num_waveforms - 1) // self.valid_loader_length + 1
+        signal_dataset = torch.utils.data.TensorDataset(self.val_waveforms)
+        signal_loader = torch.utils.data.DataLoader(
+            signal_dataset,
+            batch_size=signal_batch_size,
+            shuffle=False,
+            pin_memory=False,
+        )
+        dataset = ZippedDataset(
+            background_dataset,
+            signal_loader,
+            minimum=min(self.valid_loader_length, len(signal_loader)),
+        )
+        return dataset
+
+    def test_dataloader(self):
+        dataset = InferSequence(
+            self.test_fnames[0],
+            "/home/william.benoit/aframe/runs/testing_step/data/test/waveforms.hdf5",
+            ["H1", "L1"],
+            [0, 1],
+            4,
+            128,
+        )
+
+        dataloader = torch.utils.data.DataLoader(
+            dataset, batch_size=1, shuffle=False, pin_memory=True
+        )
+
+        return dataloader

@@ -6,13 +6,14 @@ from zlib import adler32
 
 import h5py
 import numpy as np
+import torch
 from ratelimiter import RateLimiter
 
 from ledger.events import EventSet, RecoveredInjectionSet
 from ledger.injections import InterferometerResponseSet, waveform_class_factory
 
 
-class Sequence:
+class Sequence(torch.utils.data.IterableDataset):
     def __init__(
         self,
         background_fname: str,

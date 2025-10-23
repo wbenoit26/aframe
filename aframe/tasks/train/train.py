@@ -47,6 +47,11 @@ class TrainLocal(TrainBase, AframeSingularityTask):
         logger.info(f"Executing command {cmd_str}")
         stream_command(cmd)
 
+        cmd = [sys.executable, "-m", "train", "test"] + args
+        cmd_str = shlex.join(cmd)
+        logger.info(f"Executing command {cmd_str}")
+        stream_command(cmd)
+
     def output(self):
         dir = law.LocalDirectoryTarget(str(self.run_dir))
         return dir.child("model.pt", type="f")
