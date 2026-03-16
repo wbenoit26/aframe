@@ -283,6 +283,11 @@ class SupervisedTimeSpectrogramResNet(SupervisedArchitecture):
         return time_domain_output, spec_domain_output
 
 
+@torch.jit.script
+def get_linspace(x: torch.Tensor, steps: int):
+    return torch.linspace(-1, 1, steps, device=x.device)
+
+
 class AddCoords1d(nn.Module):
     def __init__(self):
         super().__init__()
@@ -295,7 +300,7 @@ class AddCoords1d(nn.Module):
         batch_size, _, length = x.size()
         # Create a linear ramp from -1 to 1
         # [length] -> [1, 1, length]
-        pos = torch.linspace(-1, 1, length, device=x.device, dtype=x.dtype)
+        pos = get_linspace(x=x, steps=length)
         pos = pos.view(1, 1, length)
         # Expand to match batch size: [batch_size, 1, length]
         pos = pos.expand(batch_size, -1, -1)
