@@ -222,7 +222,7 @@ class Sequence:
                     yield x, x_inj
 
     def __call__(self, output, request_id, sequence_id):
-        h, y = output
+        y, h = output["discriminator_0"], output["discriminator_1"]
 
         # insert the response at the appropriate
         # spot in the corresponding output array

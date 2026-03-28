@@ -117,7 +117,7 @@ class Postprocessor:
             return EventSet()
         y = y[self.offset :]
 
-        duration = len(y) / self.inference_sampling_rate
+        duration = h.shape[0] / self.inference_sampling_rate
         times = np.arange(
             self.t0, self.t0 + duration, 1 / self.inference_sampling_rate
         )

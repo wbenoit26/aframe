@@ -21,6 +21,7 @@ class InferParameters(law.Task):
     ifos = luigi.ListParameter()
     inference_sampling_rate = luigi.FloatParameter()
     batch_size = luigi.IntParameter()
+    kernel_length = luigi.FloatParameter()
     psd_length = luigi.FloatParameter()
     cluster_window_length = luigi.FloatParameter()
     integration_window_length = luigi.FloatParameter()
@@ -224,6 +225,7 @@ class InferBase(
             integration_window_length=self.integration_window_length,
             inference_sampling_rate=self.inference_sampling_rate,
             cluster_window_length=self.cluster_window_length,
+            kernel_length=self.kernel_length,
             psd_length=self.psd_length,
             fduration=self.fduration,
             t0=sequence.t0,
