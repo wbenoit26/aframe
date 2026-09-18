@@ -100,7 +100,7 @@ class EventAnalyzer:
 
     @property
     def integration_size(self):
-        return int(self.integration_length * self.inference_sampling_rate)
+        return int(self.integration_length * self.inference_sampling_rate) + 1
 
     @property
     def window(self):
@@ -122,7 +122,12 @@ class EventAnalyzer:
 
     @property
     def inference_times(self):
-        return self.times[:: self.inference_stride]
+        # Output i is complete once its newest sample arrives, which is one
+        # stride after times[i * stride].
+        return (
+            self.times[:: self.inference_stride]
+            + 1 / self.inference_sampling_rate
+        )
 
     @property
     def whitened_times(self):
@@ -131,7 +136,7 @@ class EventAnalyzer:
             - self.inference_stride
             - int(self.sample_rate * self.fduration)
         )
-        return self.times[start:]
+        return self.times[start - 1 : -1] - self.fduration / 2
 
     def find_strain(self, time: float, shifts: Sequence[float]):
         # find strain file corresponding to requested time
