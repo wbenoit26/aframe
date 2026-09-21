@@ -9,6 +9,7 @@ from spython.main import Client
 
 # Define the directory where the projects are located
 BASE_DIR: Path = Path(__file__).resolve().parent.parent / "projects"
+LIBS_DIR: Path = Path(__file__).resolve().parent.parent / "libs"
 TEMPLATES_DIR: Path = (
     Path(__file__).resolve().parent.parent / "container_templates"
 )
@@ -24,13 +25,18 @@ COPY_EXCLUDE: set[str] = {
 }
 
 
-def _project_files(project_name: str) -> list[str]:
-    project_dir = BASE_DIR / project_name
-    return sorted(
+def _copy_entries(
+    source_prefix: str, directory: Path, destination: str
+) -> list[str]:
+    """
+    Build %files lines that copy a directory's contents entry by entry.
+    """
+    names = sorted(
         path.name
-        for path in project_dir.iterdir()
-        if not path.name.startswith(".") and path.name not in COPY_EXCLUDE
+        for path in directory.iterdir()
+        if path.name not in COPY_EXCLUDE
     )
+    return [f"{source_prefix}{name} {destination}/{name}" for name in names]
 
 
 def _get_files_block(project_name: str) -> str:
@@ -44,10 +50,11 @@ def _get_files_block(project_name: str) -> str:
 
     sources = data["tool"]["uv"]["sources"]
 
-    lines = [
-        f"{name} /opt/aframe/projects/{project_name}/{name}"
-        for name in _project_files(project_name)
-    ]
+    lines = _copy_entries(
+        "",
+        BASE_DIR / project_name,
+        f"/opt/aframe/projects/{project_name}",
+    )
     seen: set[str] = set()
 
     for source in sources.values():
@@ -64,9 +71,20 @@ def _get_files_block(project_name: str) -> str:
             lib_name = normalized.removeprefix("../../libs/")
             entry = f"../../libs/{lib_name} /opt/aframe/libs/{lib_name}"
 
-        if entry not in seen:
-            seen.add(entry)
+        if entry in seen:
+            continue
+        seen.add(entry)
+
+        if normalized == "../..":
             lines.append(entry)
+        else:
+            lines.extend(
+                _copy_entries(
+                    f"../../libs/{lib_name}/",
+                    LIBS_DIR / lib_name,
+                    f"/opt/aframe/libs/{lib_name}",
+                )
+            )
 
     aframe_entry = "../../aframe /opt/aframe/aframe"
     if aframe_entry not in seen:
