@@ -16,6 +16,22 @@ TEMPLATES_DIR: Path = (
 # List of all available project names
 PROJECTS: list[str] = [x.name for x in BASE_DIR.iterdir() if x.is_dir()]
 
+COPY_EXCLUDE: set[str] = {
+    ".venv",
+    ".pytest_cache",
+    "__pycache__",
+    "apptainer.def",
+}
+
+
+def _project_files(project_name: str) -> list[str]:
+    project_dir = BASE_DIR / project_name
+    return sorted(
+        path.name
+        for path in project_dir.iterdir()
+        if not path.name.startswith(".") and path.name not in COPY_EXCLUDE
+    )
+
 
 def _get_files_block(project_name: str) -> str:
     """
@@ -28,7 +44,10 @@ def _get_files_block(project_name: str) -> str:
 
     sources = data["tool"]["uv"]["sources"]
 
-    lines = [f". /opt/aframe/projects/{project_name}/"]
+    lines = [
+        f"{name} /opt/aframe/projects/{project_name}/{name}"
+        for name in _project_files(project_name)
+    ]
     seen: set[str] = set()
 
     for source in sources.values():
@@ -49,7 +68,9 @@ def _get_files_block(project_name: str) -> str:
             seen.add(entry)
             lines.append(entry)
 
-    lines.append("../../aframe /opt/aframe/aframe")
+    aframe_entry = "../../aframe /opt/aframe/aframe"
+    if aframe_entry not in seen:
+        lines.append(aframe_entry)
     lines.append("../../pyproject.toml /opt/aframe/pyproject.toml")
     return "\n".join(lines)
 
