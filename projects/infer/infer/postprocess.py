@@ -8,7 +8,6 @@ class Postprocessor:
         t0: float,
         shifts: list[float],
         psd_length: float,
-        fduration: float,
         inference_sampling_rate: float,
         integration_window_length: float,
         cluster_window_length: float,
@@ -24,8 +23,6 @@ class Postprocessor:
                 Time shifts to applied to each interferometer
             psd_length:
                 Length of the PSD data used in inference in seconds
-            fduration:
-                Duration of the whitening filter used in seconds
             inference_sampling_rate:
                 Rate at which inference was performed
             integration_window_length:
@@ -39,13 +36,13 @@ class Postprocessor:
 
         # offset our initial time both by the psd data
         # that we're going to slough off as well as by
-        # the filter settle-in and integration time, plus
-        # one inference step since the first output is
-        # produced from a full window ending one step in
+        # the integration time, plus one inference step
+        # since the first output is produced from a full
+        # window ending one step in. Whitening is causal,
+        # so each window ends at the end of its input data
         self.t0 = (
             t0
             + psd_length
-            - fduration / 2
             - integration_window_length
             + 1 / inference_sampling_rate
         )

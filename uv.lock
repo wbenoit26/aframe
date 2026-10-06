@@ -1839,7 +1839,7 @@ requires-dist = [
     { name = "fsspec", extras = ["s3"], specifier = ">=2024" },
     { name = "h5py", specifier = ">=3.10,<4" },
     { name = "jsonargparse", extras = ["signatures"], specifier = ">=4.49,<5" },
-    { name = "ml4gw", specifier = ">=0.8.0" },
+    { name = "ml4gw", specifier = ">=0.8.4" },
     { name = "ml4gw-hermes", extras = ["torch"], git = "https://github.com/ML4GW/hermes?branch=dev" },
     { name = "nvidia-cudnn-cu12" },
     { name = "s3fs", specifier = ">=2024" },
@@ -7376,7 +7376,7 @@ test = [
 requires-dist = [
     { name = "astropy", specifier = ">=6.0.1" },
     { name = "h5py", marker = "extra == 'torch'", specifier = ">=3.10,<4" },
-    { name = "ml4gw", marker = "extra == 'torch'", specifier = ">=0.8.0" },
+    { name = "ml4gw", marker = "extra == 'torch'", specifier = ">=0.8.4" },
     { name = "numpy", specifier = ">=2" },
     { name = "s3fs", specifier = ">=2024" },
     { name = "scipy", specifier = ">=1.9" },
@@ -7388,13 +7388,13 @@ provides-extras = ["torch"]
 dev = [
     { name = "h5py", specifier = ">=3.10,<4" },
     { name = "jupyter", specifier = ">=1.0.0,<2" },
-    { name = "ml4gw", specifier = ">=0.8.0" },
+    { name = "ml4gw", specifier = ">=0.8.4" },
     { name = "pytest", specifier = ">=8.3.0,<9" },
     { name = "torch" },
 ]
 test = [
     { name = "h5py", specifier = ">=3.10,<4" },
-    { name = "ml4gw", specifier = ">=0.8.0" },
+    { name = "ml4gw", specifier = ">=0.8.4" },
     { name = "pytest", specifier = ">=8.3.0,<9" },
     { name = "torch" },
 ]

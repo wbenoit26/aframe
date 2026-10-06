@@ -10,7 +10,7 @@ import lightning.pytorch as pl
 import torch
 from ml4gw.augmentations import SignalInverter, SignalReverser
 from ml4gw.dataloading import Hdf5TimeSeriesDataset
-from ml4gw.transforms import Whiten
+from ml4gw.transforms import MinimumPhaseWhiten
 from ml4gw.utils.slicing import unfold_windows
 from utils.preprocessing import PsdEstimator
 
@@ -100,10 +100,10 @@ class BaseAframeDataset(pl.LightningDataModule):
             Length in seconds of the time-domain kernel
             passed to the model after whitening.
         fduration:
-            The length of the whitening filter's impulse
-            response, in seconds. `fduration / 2` seconds
-            worth of data will be cropped from the edges
-            of the whitened timeseries.
+            The length of the causal whitening filter's impulse
+            response, in seconds. `fduration` seconds worth of
+            data will be cropped from the left edge of the
+            whitened timeseries.
         psd_length:
             Length in seconds of the PSD used for whitening.
         waveform_prob:
@@ -315,22 +315,21 @@ class BaseAframeDataset(pl.LightningDataModule):
         """
         Minimum numer of samples that the defining point of the
         signal will be from the left edge of the _unwhitened_ kernel.
+        Whitening crops the whole filter from the left edge.
         """
         return (
             int(self.hparams.left_pad * self.hparams.sample_rate)
-            + self.filter_size // 2
+            + self.filter_size
         )
 
     @property
     def right_pad_size(self) -> int:
         """
         Minimum number of samples that the defining point of the
-        signal will be from the left edge of the _unwhitened_ kernel
+        signal will be from the right edge of the _unwhitened_ kernel.
+        Whitening is causal, so it crops nothing from the right edge.
         """
-        return (
-            int(self.hparams.right_pad * self.hparams.sample_rate)
-            + self.filter_size // 2
-        )
+        return int(self.hparams.right_pad * self.hparams.sample_rate)
 
     def train_val_split(self) -> tuple[Sequence[str], Sequence[str]]:
         """
@@ -456,7 +455,7 @@ class BaseAframeDataset(pl.LightningDataModule):
             fast=self.hparams.highpass is not None,
             average="median",
         )
-        self.whitener = Whiten(
+        self.whitener = MinimumPhaseWhiten(
             self.hparams.fduration,
             self.hparams.sample_rate,
             self.hparams.highpass,

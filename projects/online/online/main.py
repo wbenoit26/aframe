@@ -85,16 +85,14 @@ def load_amplfi(model: FlowArchitecture, weights: Path, num_params: int):
 
 def get_time_offset(
     online_inference_rate: float,
-    fduration: float,
     integration_window_length: float,
     kernel_length: float,
     aframe_right_pad: float,
 ):
     time_offset = (
-        # end of the first kernel in batch
+        # end of the first kernel in batch. Whitening is
+        # causal, so kernels end at the end of the input data
         1 / online_inference_rate
-        # account for whitening padding
-        - fduration / 2
         # distance coalescence time lies away from right edge
         - aframe_right_pad
         # account for time to build peak
@@ -892,7 +890,6 @@ def main(
 
     time_offset = get_time_offset(
         online_inference_rate,
-        fduration,
         integration_window_length,
         kernel_length,
         aframe_right_pad,

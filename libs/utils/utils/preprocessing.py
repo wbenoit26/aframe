@@ -3,9 +3,9 @@ from collections.abc import Callable
 import torch
 from ml4gw.transforms import (
     Decimator,
+    MinimumPhaseWhiten,
     SingleQTransform,
     SpectralDensity,
-    Whiten,
 )
 from ml4gw.utils.slicing import unfold_windows
 from torch import Tensor
@@ -172,7 +172,9 @@ class BatchWhitener(torch.nn.Module):
         inference_sampling_rate (float): Sampling rate of network output in Hz.
             Determines the overlap between kernels.
         batch_size (int): Number of kernels to extract from input.
-        fduration (float): Duration of the whitening filter in seconds
+        fduration (float): Duration of the causal whitening filter in
+            seconds. This much data is cropped from the left edge of the
+            input, so the last kernel ends at the end of the input.
         fftlength (float, optional): FFT length for PSD calculation in
             seconds. If None, defaults to kernel_length + fduration.
         augmentor (Callable, optional): Function to apply augmentation.
@@ -234,7 +236,9 @@ class BatchWhitener(torch.nn.Module):
             fast=highpass is not None,
         )
         # Initialize whitening module
-        self.whitener = Whiten(fduration, sample_rate, highpass, lowpass)
+        self.whitener = MinimumPhaseWhiten(
+            fduration, sample_rate, highpass, lowpass
+        )
 
     def forward(self, x: Tensor) -> Tensor:
         """
@@ -266,6 +270,9 @@ class BatchWhitener(torch.nn.Module):
 
         # Estimate PSD and prepare data
         x, psd = self.psd_estimator(x.double())
+        # The whitener requires a batch dimension, which the
+        # PSD estimator drops for 2D or background/injection inputs
+        x = x.reshape(-1, num_channels, x.size(-1))
         # Apply whitening using estimated PSD
         whitened = self.whitener(x, psd)
 
@@ -352,7 +359,9 @@ class MultiModalPreprocessor(torch.nn.Module):
             fast=highpass is not None,
         )
         # Initialize whitening module
-        self.whitener = Whiten(fduration, sample_rate, highpass, lowpass)
+        self.whitener = MinimumPhaseWhiten(
+            fduration, sample_rate, highpass, lowpass
+        )
 
         # Create frequency mask for filtering frequency bins
         freqs = torch.fft.rfftfreq(self.kernel_size, d=1 / sample_rate)
@@ -399,6 +408,9 @@ class MultiModalPreprocessor(torch.nn.Module):
 
         # Estimate PSD and prepare data
         x, psd = self.psd_estimator(x.double())
+        # The whitener requires a batch dimension, which the
+        # PSD estimator drops for 2D or background/injection inputs
+        x = x.reshape(-1, num_channels, x.size(-1))
         # Apply whitening using estimated PSD
         whitened = self.whitener(x, psd)
 
@@ -537,7 +549,9 @@ class TimeSpectrogramPreprocessor(torch.nn.Module):
             average="median",
             fast=highpass is not None,
         )
-        self.whitener = Whiten(fduration, sample_rate, highpass, lowpass)
+        self.whitener = MinimumPhaseWhiten(
+            fduration, sample_rate, highpass, lowpass
+        )
 
     def forward(self, x: Tensor) -> Tensor:
         """
@@ -573,6 +587,9 @@ class TimeSpectrogramPreprocessor(torch.nn.Module):
 
         # Estimate PSD and prepare data
         x, psd = self.psd_estimator(x.double())
+        # The whitener requires a batch dimension, which the
+        # PSD estimator drops for 2D or background/injection inputs
+        x = x.reshape(-1, num_channels, x.size(-1))
         # Apply whitening using estimated PSD
         whitened = self.whitener(x, psd)
 

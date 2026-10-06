@@ -19,12 +19,12 @@ dependencies = [
 [project.optional-dependencies]
 torch = [
     "torch",
-    "ml4gw>=0.8.0",
+    "ml4gw>=0.8.4",
     "h5py>=3.10,<4",
 ]
 
 [dependency-groups]
-test = ["pytest>=8.3.0,<9", "torch", "ml4gw>=0.8.0", "h5py>=3.10,<4"]
+test = ["pytest>=8.3.0,<9", "torch", "ml4gw>=0.8.4", "h5py>=3.10,<4"]
 dev = [{ include-group = "test" }, "jupyter>=1.0.0,<2"]
 
 [build-system]
