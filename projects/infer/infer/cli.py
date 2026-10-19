@@ -12,6 +12,7 @@ or rnp (Rates and Populations frames).
 """
 
 import json
+import logging
 import tempfile
 from pathlib import Path
 
@@ -238,8 +239,11 @@ def main_local(args=None):
         Path(cfg.logfile).parent.mkdir(parents=True, exist_ok=True)
     configure_logging(cfg.logfile, verbose=cfg.verbose)
 
+    import torch
+
     from infer.local import LocalInferenceClient
 
+    logging.info(f"Running on GPU {torch.cuda.get_device_name()}")
     client = LocalInferenceClient(
         weights=cfg.weights,
         backend=cfg.backend,
@@ -255,3 +259,5 @@ def main_local(args=None):
         fftlength=cfg.fftlength,
     )
     _run_group(client, cfg, reset=client.reset)
+    peak = torch.cuda.max_memory_allocated() / 2**30
+    logging.info(f"Peak GPU memory allocated: {peak:.2f} GiB")
