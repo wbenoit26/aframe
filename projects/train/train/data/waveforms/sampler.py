@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import h5py
 import torch
 from ledger.injections import WaveformSet, waveform_class_factory
 from utils import x_per_y
@@ -33,9 +34,9 @@ class WaveformSampler(torch.nn.Module):
         self.sample_rate = sample_rate
         self.val_waveform_file = val_waveform_file
 
-        waveform_set = self.waveform_set_cls.read(val_waveform_file)
-        self.num_val_waveforms = len(waveform_set)
-        self.right_pad = waveform_set.right_pad
+        with h5py.File(val_waveform_file, "r") as f:
+            self.num_val_waveforms = int(f.attrs["length"])
+            self.right_pad = f.attrs["right_pad"]
 
     @property
     def waveform_set_cls(self):
